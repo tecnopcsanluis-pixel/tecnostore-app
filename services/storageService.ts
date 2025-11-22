@@ -1,117 +1,134 @@
-
+import { 
+  collection, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  setDoc
+} from 'firebase/firestore';
+import { db, isFirebaseEnabled } from '../firebaseConfig';
 import { Product, Sale, CashClosure, Expense } from '../types';
 
-const KEYS = {
-  PRODUCTS: 'tecnostore_products',
-  SALES: 'tecnostore_sales',
-  CLOSURES: 'tecnostore_closures',
-  EXPENSES: 'tecnostore_expenses',
+const COLS = {
+  PRODUCTS: 'products',
+  SALES: 'sales',
+  EXPENSES: 'expenses',
+  CLOSURES: 'closures'
 };
 
-// Mock Initial Data with Images (Using generic placeholders for demo stability)
-const INITIAL_PRODUCTS: Product[] = [
-  { 
-    id: '1', 
-    name: 'Funda iPhone 14 Pro', 
-    category: 'Fundas', 
-    price: 15000, 
-    stock: 20,
-    image: 'https://images.unsplash.com/photo-1664478383314-704bf6325ade?auto=format&fit=crop&w=300&q=80'
-  },
-  { 
-    id: '2', 
-    name: 'Cable USB-C Carga Rápida', 
-    category: 'Cables', 
-    price: 8500, 
-    stock: 50,
-    image: 'https://images.unsplash.com/photo-1609619387578-1483a4795561?auto=format&fit=crop&w=300&q=80'
-  },
-  { 
-    id: '3', 
-    name: 'Vidrio Templado Samsung S23', 
-    category: 'Protectores', 
-    price: 5000, 
-    stock: 30,
-    image: 'https://images.unsplash.com/photo-1677751985372-8d9f87835283?auto=format&fit=crop&w=300&q=80'
-  },
-  { 
-    id: '4', 
-    name: 'Cargador 20W Original', 
-    category: 'Cargadores', 
-    price: 25000, 
-    stock: 15,
-    image: 'https://images.unsplash.com/photo-1615526675159-e248c3021d3f?auto=format&fit=crop&w=300&q=80'
-  },
-  { 
-    id: '5', 
-    name: 'Auriculares Bluetooth TWS', 
-    category: 'Audio', 
-    price: 35000, 
-    stock: 10,
-    image: 'https://images.unsplash.com/photo-1572569028738-411a197b83cd?auto=format&fit=crop&w=300&q=80'
-  },
-];
+// Helper para manejar errores de Firebase
+const handleError = (error: any, action: string) => {
+  console.error(`Error en ${action}:`, error);
+  if (error.code === 'permission-denied') {
+    alert(`ERROR DE PERMISOS: Firebase rechazó la operación "${action}". \n\nSOLUCIÓN: Ve a Firebase Console -> Firestore Database -> Reglas, y cambia "allow read, write: if false;" por "allow read, write: if true;"`);
+  } else {
+    alert(`Error al guardar en la nube (${action}): ${error.message}`);
+  }
+  throw error;
+};
 
 export const StorageService = {
-  getProducts: (): Product[] => {
-    const data = localStorage.getItem(KEYS.PRODUCTS);
-    if (!data) {
-      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
-      return INITIAL_PRODUCTS;
+  
+  // --- PRODUCTOS ---
+  subscribeToProducts: (callback: (products: Product[]) => void) => {
+    if (isFirebaseEnabled && db) {
+      const q = query(collection(db, COLS.PRODUCTS));
+      return onSnapshot(q, (snapshot) => {
+        const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        callback(products);
+      }, (error) => console.error("Error suscribiendo a productos:", error));
     }
-    return JSON.parse(data);
+    return () => {};
   },
 
-  saveProducts: (products: Product[]) => {
-    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+  addProduct: async (product: Product) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = product;
+      await setDoc(doc(db, COLS.PRODUCTS, id), data);
+    } catch (e) { handleError(e, 'Agregar Producto'); }
   },
 
-  getSales: (): Sale[] => {
-    const data = localStorage.getItem(KEYS.SALES);
-    return data ? JSON.parse(data) : [];
+  updateProduct: async (product: Product) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = product;
+      await updateDoc(doc(db, COLS.PRODUCTS, id), data);
+    } catch (e) { handleError(e, 'Actualizar Producto'); }
   },
 
-  saveSale: (sale: Sale) => {
-    const sales = StorageService.getSales();
-    sales.push(sale);
-    localStorage.setItem(KEYS.SALES, JSON.stringify(sales));
+  deleteProduct: async (id: string) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      await deleteDoc(doc(db, COLS.PRODUCTS, id));
+    } catch (e) { handleError(e, 'Eliminar Producto'); }
   },
 
-  getExpenses: (): Expense[] => {
-    const data = localStorage.getItem(KEYS.EXPENSES);
-    return data ? JSON.parse(data) : [];
+  // --- VENTAS ---
+  subscribeToSales: (callback: (sales: Sale[]) => void) => {
+    if (isFirebaseEnabled && db) {
+      const q = query(collection(db, COLS.SALES)); 
+      return onSnapshot(q, (snapshot) => {
+        const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+        callback(sales);
+      }, (error) => console.error("Error suscribiendo a ventas:", error));
+    }
+    return () => {};
   },
 
-  saveExpense: (expense: Expense) => {
-    const expenses = StorageService.getExpenses();
-    expenses.push(expense);
-    localStorage.setItem(KEYS.EXPENSES, JSON.stringify(expenses));
+  addSale: async (sale: Sale) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = sale;
+      await setDoc(doc(db, COLS.SALES, id), data);
+    } catch (e) { handleError(e, 'Registrar Venta'); }
   },
 
-  getClosures: (): CashClosure[] => {
-    const data = localStorage.getItem(KEYS.CLOSURES);
-    return data ? JSON.parse(data) : [];
+  // --- GASTOS ---
+  subscribeToExpenses: (callback: (expenses: Expense[]) => void) => {
+    if (isFirebaseEnabled && db) {
+      const q = query(collection(db, COLS.EXPENSES));
+      return onSnapshot(q, (snapshot) => {
+        const expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+        callback(expenses);
+      }, (error) => console.error("Error suscribiendo a gastos:", error));
+    }
+    return () => {};
   },
 
-  saveClosure: (closure: CashClosure) => {
-    const closures = StorageService.getClosures();
-    closures.push(closure);
-    localStorage.setItem(KEYS.CLOSURES, JSON.stringify(closures));
+  addExpense: async (expense: Expense) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = expense;
+      await setDoc(doc(db, COLS.EXPENSES, id), data);
+    } catch (e) { handleError(e, 'Agregar Gasto'); }
   },
 
-  getLastClosureDate: (): Date | null => {
-    const closures = StorageService.getClosures();
-    if (closures.length === 0) return null;
-    // Sort to find the latest
-    const sorted = closures.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return new Date(sorted[0].date);
+  deleteExpense: async (id: string) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      await deleteDoc(doc(db, COLS.EXPENSES, id));
+    } catch (e) { handleError(e, 'Eliminar Gasto'); }
   },
 
-  clearAll: () => {
-    localStorage.removeItem(KEYS.PRODUCTS);
-    localStorage.removeItem(KEYS.SALES);
-    localStorage.removeItem(KEYS.CLOSURES);
-    localStorage.removeItem(KEYS.EXPENSES);
-    window.location.reload();
+  // --- CIERRES ---
+  subscribeToClosures: (callback: (closures: CashClosure[]) => void) => {
+    if (isFirebaseEnabled && db) {
+      const q = query(collection(db, COLS.CLOSURES));
+      return onSnapshot(q, (snapshot) => {
+        const closures = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashClosure));
+        callback(closures);
+      }, (error) => console.error("Error suscribiendo a cierres:", error));
+    }
+    return () => {};
+  },
+
+  addClosure: async (closure: CashClosure) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = closure;
+      await setDoc(doc(db, COLS.CLOSURES, id), data);
+    } catch (e) { handleError(e, 'Cerrar Caja'); }
   }
 };
