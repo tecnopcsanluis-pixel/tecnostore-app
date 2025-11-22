@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -6,7 +5,7 @@ import { POS } from './components/POS';
 import { Inventory } from './components/Inventory';
 import { SalesHistory } from './components/SalesHistory';
 import { CashRegister } from './components/CashRegister';
-import { Expenses } from './components/Expenses'; // Import Expenses
+import { Expenses } from './components/Expenses';
 import { Product, Sale, CashClosure, Expense } from './types';
 import { StorageService } from './services/storageService';
 
@@ -14,100 +13,78 @@ function App() {
   const [activeTab, setActiveTab] = useState('pos');
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]); // State for expenses
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [closures, setClosures] = useState<CashClosure[]>([]);
-  const [lastClosureDate, setLastClosureDate] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize data from storage
   useEffect(() => {
-    setProducts(StorageService.getProducts());
-    setSales(StorageService.getSales());
-    setExpenses(StorageService.getExpenses()); // Load expenses
-    setClosures(StorageService.getClosures());
-    setLastClosureDate(StorageService.getLastClosureDate());
+    const unsubProducts = StorageService.subscribeToProducts((data) => {
+      setProducts(data);
+      setIsLoading(false);
+    });
+    const unsubSales = StorageService.subscribeToSales((data) => setSales(data));
+    const unsubExpenses = StorageService.subscribeToExpenses((data) => setExpenses(data));
+    const unsubClosures = StorageService.subscribeToClosures((data) => setClosures(data));
+
+    return () => {
+      unsubProducts();
+      unsubSales();
+      unsubExpenses();
+      unsubClosures();
+    };
   }, []);
 
-  const handleUpdateProducts = (newProducts: Product[]) => {
-    setProducts(newProducts);
-    StorageService.saveProducts(newProducts);
-  };
+  const handleAddProduct = async (product: Product) => await StorageService.addProduct(product);
+  const handleUpdateProduct = async (product: Product) => await StorageService.updateProduct(product);
+  const handleDeleteProduct = async (id: string) => await StorageService.deleteProduct(id);
 
-  const handleCheckout = (newSale: Sale) => {
-    // Update Sales
-    const updatedSales = [...sales, newSale];
-    setSales(updatedSales);
-    StorageService.saveSale(newSale);
-
-    // Update Stock
-    const updatedProducts = products.map(p => {
-      const soldItem = newSale.items.find(item => item.id === p.id);
-      if (soldItem) {
-        return { ...p, stock: Math.max(0, p.stock - soldItem.quantity) };
-      }
-      return p;
-    });
-    handleUpdateProducts(updatedProducts);
-  };
-
-  const handleAddExpense = (newExpense: Expense) => {
-    const updatedExpenses = [...expenses, newExpense];
-    setExpenses(updatedExpenses);
-    StorageService.saveExpense(newExpense);
-  };
-
-  const handleDeleteExpense = (id: string) => {
-    // We need to update StorageService to support delete or just overwrite full list
-    // For now, we implement overwrite approach in App logic but storage service only has 'saveExpense' (append)
-    // To make this work properly with delete, we should probably update storage service or just reload all.
-    // Given the constraints, let's just filter state. To persist delete, we'd need a saveExpenses (all) method.
-    // Let's assume we filter and user understands persistence limitations or I add a saveAllExpenses method.
+  const handleCheckout = async (newSale: Sale) => {
+    // 1. Guardar Venta
+    await StorageService.addSale(newSale);
     
-    const updatedExpenses = expenses.filter(e => e.id !== id);
-    setExpenses(updatedExpenses);
-    // For simplicity in this iteration, re-saving all isn't in StorageService, so we'll just append updates
-    // or just rely on session for deletes until reload. 
-    // Ideally StorageService.saveExpenses(updatedExpenses).
-    localStorage.setItem('tecnostore_expenses', JSON.stringify(updatedExpenses));
+    // 2. Actualizar Stock (Corregido para esperar a que termine)
+    const updates = newSale.items.map(async (item) => {
+      const original = products.find(p => p.id === item.id);
+      if (original) {
+        await StorageService.updateProduct({ 
+          ...original, 
+          stock: Math.max(0, original.stock - item.quantity) 
+        });
+      }
+    });
+    
+    await Promise.all(updates);
   };
 
-  const handleCloseRegister = (closure: CashClosure) => {
-    const updatedClosures = [...closures, closure];
-    setClosures(updatedClosures);
-    StorageService.saveClosure(closure);
-    setLastClosureDate(new Date(closure.date));
-    alert('¡Caja cerrada correctamente!');
+  const handleAddExpense = async (newExpense: Expense) => await StorageService.addExpense(newExpense);
+  const handleDeleteExpense = async (id: string) => await StorageService.deleteExpense(id);
+  
+  const handleCloseRegister = async (closure: CashClosure) => {
+    await StorageService.addClosure(closure);
+    alert('¡Caja cerrada y guardada en la nube!');
   };
+
+  const lastClosureDate = React.useMemo(() => {
+    if (closures.length === 0) return null;
+    const sorted = [...closures].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return new Date(sorted[0].date);
+  }, [closures]);
 
   const renderContent = () => {
+    if (isLoading) return <div className="flex items-center justify-center h-full text-brand-500 animate-pulse font-bold text-xl">Conectando con Firebase...</div>;
+
     switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard sales={sales} products={products} />;
-      case 'pos':
-        return <POS products={products} onCheckout={handleCheckout} />;
-      case 'inventory':
-        return <Inventory products={products} onUpdateProducts={handleUpdateProducts} />;
-      case 'expenses': // New Route
-        return <Expenses expenses={expenses} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
-      case 'history':
-        return <SalesHistory sales={sales} />;
-      case 'cashier':
-        return <CashRegister 
-          sales={sales} 
-          expenses={expenses} // Pass expenses
-          closures={closures} 
-          onCloseRegister={handleCloseRegister} 
-          lastClosureDate={lastClosureDate} 
-        />;
-      default:
-        return <POS products={products} onCheckout={handleCheckout} />;
+      case 'dashboard': return <Dashboard sales={sales} products={products} />;
+      case 'pos': return <POS products={products} onCheckout={handleCheckout} />;
+      case 'inventory': return <Inventory products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
+      case 'expenses': return <Expenses expenses={expenses} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
+      case 'history': return <SalesHistory sales={sales} />;
+      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} onCloseRegister={handleCloseRegister} lastClosureDate={lastClosureDate} />;
+      default: return <POS products={products} onCheckout={handleCheckout} />;
     }
   };
 
-  return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-      {renderContent()}
-    </Layout>
-  );
+  return <Layout activeTab={activeTab} onTabChange={setActiveTab}>{renderContent()}</Layout>;
 }
 
 export default App;
