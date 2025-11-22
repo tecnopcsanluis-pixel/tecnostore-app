@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, History, Menu, X, Zap, Wallet, TrendingDown, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, ShoppingCart, Package, History, Menu, X, Zap, Wallet, TrendingDown } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,36 +10,6 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-
-  useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-    }
-
-    const handler = (e: any) => {
-      // Prevent Chrome 67 and earlier from automatically showing the prompt
-      e.preventDefault();
-      // Stash the event so it can be triggered later.
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
-    } else {
-      alert("Instrucciones:\n1. Si estás en PC: Busca el icono (+) en la barra de direcciones del navegador.\n2. Si estás en Móvil: Toca menú (3 puntos) -> 'Agregar a pantalla principal'.\n3. Si no ves opciones: Abre esta web en una Pestaña Nueva (fuera de la vista previa).");
-    }
-  };
 
   const navItems = [
     { id: 'pos', label: 'Vender (Caja)', icon: ShoppingCart },
@@ -95,19 +65,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
           ))}
         </nav>
 
-        <div className="p-4 space-y-4 border-t bg-gray-50">
-           {!isInstalled && (
-             <button 
-              onClick={handleInstallClick}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white text-xs font-bold rounded-lg hover:bg-gray-700 transition"
-            >
-              <Download className="w-4 h-4" />
-              Instalar App
-            </button>
-           )}
-          <div className="text-xs text-center text-gray-400">
-            <p>© 2025 TecnoStore v1.4</p>
-          </div>
+        <div className="p-4 border-t text-xs text-center text-gray-400">
+          <p>© 2025 TecnoStore v1.2</p>
         </div>
       </aside>
 

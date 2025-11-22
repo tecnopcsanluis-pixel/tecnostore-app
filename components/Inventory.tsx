@@ -1,6 +1,7 @@
+
 import React, { useState, useRef } from 'react';
 import { Product } from '../types';
-import { Search, Plus, Upload, Trash2, Save, Loader2, FileSpreadsheet, Edit2, X, Image as ImageIcon } from 'lucide-react';
+import { Search, Plus, Upload, Trash2, Save, Loader2, FileSpreadsheet, Edit2, X, Image as ImageIcon, Wand2 } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -19,13 +20,12 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onUpdateProducts
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '', category: '', price: 0, stock: 0, image: ''
   });
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // State for AI Import
   const [importText, setImportText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -106,7 +106,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onUpdateProducts
   const compressImage = (base64Str: string, maxWidth = 300): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
-      img.src = base64Str;
+      img.src = `data:image/png;base64,${base64Str}`;
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ratio = maxWidth / img.width;
@@ -119,16 +119,25 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onUpdateProducts
     });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const compressed = await compressImage(base64);
+  const handleGenerateImage = async () => {
+    if (!productForm.name) {
+      alert("Ingresa un nombre para generar la imagen.");
+      return;
+    }
+    setIsGeneratingImage(true);
+    try {
+      const base64Raw = await GeminiService.generateProductImage(productForm.name);
+      if (base64Raw) {
+        // Compress before saving to state to avoid LocalStorage quota exceeded
+        const compressed = await compressImage(base64Raw);
         setProductForm({ ...productForm, image: compressed });
-      };
-      reader.readAsDataURL(file);
+      } else {
+        alert("No se pudo generar la imagen.");
+      }
+    } catch (e) {
+      alert("Error generando imagen: " + e);
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -145,7 +154,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onUpdateProducts
             className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-xl hover:bg-emerald-200 font-medium transition"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            Importar Excel (IA)
+            Importar Excel/Texto (IA)
           </button>
           <button 
             onClick={openAddModal}
@@ -246,47 +255,40 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onUpdateProducts
               
               {/* Image Section */}
               <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 group hover:border-brand-300 transition relative">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handleFileChange}
-                />
-                
                 {productForm.image ? (
                   <div className="relative w-32 h-32">
                     <img src={productForm.image} alt="Preview" className="w-full h-full object-cover rounded-lg shadow-md" />
                     <button 
-                      onClick={() => {
-                        setProductForm({...productForm, image: ''});
-                        if(fileInputRef.current) fileInputRef.current.value = '';
-                      }}
+                      onClick={() => setProductForm({...productForm, image: ''})}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-sm hover:bg-red-600"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ) : (
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-center cursor-pointer w-full py-4"
-                  >
+                  <div className="text-center">
                     <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-brand-600">Click para subir imagen</p>
-                    <p className="text-xs text-gray-400">o pega una URL abajo</p>
+                    <p className="text-sm text-gray-500">Sin imagen</p>
                   </div>
                 )}
                 
-                <div className="w-full mt-4 pt-4 border-t border-gray-200">
-                   <input 
-                    type="text"
-                    className="w-full text-xs p-2 border rounded bg-white text-gray-600"
-                    placeholder="O pega enlace directo (https://...)"
-                    value={productForm.image?.startsWith('data') ? '' : productForm.image || ''}
-                    onChange={(e) => setProductForm({...productForm, image: e.target.value})}
-                  />
+                <div className="mt-4 flex gap-2 w-full">
+                  <button 
+                    onClick={handleGenerateImage}
+                    disabled={isGeneratingImage || !productForm.name}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent-100 text-accent-700 rounded-lg text-sm font-medium hover:bg-accent-200 transition disabled:opacity-50"
+                  >
+                    {isGeneratingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                    {isGeneratingImage ? 'Creando...' : 'Generar con IA'}
+                  </button>
                 </div>
+                <input 
+                  type="text"
+                  className="mt-2 w-full text-xs p-2 border rounded bg-white text-gray-600"
+                  placeholder="O pega una URL de imagen..."
+                  value={productForm.image?.startsWith('data') ? '(Imagen Base64)' : productForm.image || ''}
+                  onChange={(e) => setProductForm({...productForm, image: e.target.value})}
+                />
               </div>
 
               <div>

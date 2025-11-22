@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, CartItem, PaymentMethod, Sale } from '../types';
-import { Search, ShoppingCart, Trash, Plus, Minus, CheckCircle, ShoppingBag, Smartphone, Headphones, Zap } from 'lucide-react';
+import { Search, ShoppingCart, Trash, Plus, Minus, CreditCard, CheckCircle, AlertCircle, ImageOff } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface POSProps {
@@ -32,6 +32,7 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
       setApplySurcharge(false);
     } else {
       // Optional: Auto-enable surcharge for non-cash. 
+      // User can still uncheck it manually.
       setApplySurcharge(true); 
     }
   }, [paymentMethod]);
@@ -103,15 +104,6 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
     alert('¡Venta registrada con éxito!');
   };
 
-  // Helper to get icon based on category (simple heuristic)
-  const getCategoryIcon = (category: string) => {
-    const cat = category.toLowerCase();
-    if (cat.includes('audio') || cat.includes('auricular')) return <Headphones className="w-12 h-12 text-brand-300" />;
-    if (cat.includes('cargador') || cat.includes('cable')) return <Zap className="w-12 h-12 text-yellow-400" />;
-    if (cat.includes('celular') || cat.includes('iphone') || cat.includes('samsung')) return <Smartphone className="w-12 h-12 text-gray-400" />;
-    return <ShoppingBag className="w-12 h-12 text-brand-200" />;
-  };
-
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full">
       
@@ -167,13 +159,11 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
                   <div className="absolute top-2 right-2 z-10 bg-gray-100/90 backdrop-blur-sm text-gray-600 text-[10px] font-bold px-2 py-1 rounded-full border border-gray-200">
                     {product.stock} u.
                   </div>
-                  <div className="h-32 w-full bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                  <div className="h-32 w-full bg-gray-50 flex items-center justify-center text-gray-300 relative overflow-hidden">
                      {product.image ? (
                        <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
                      ) : (
-                       <div className="flex flex-col items-center justify-center gap-2 text-gray-300 w-full h-full bg-gray-50 group-hover:bg-brand-50 transition-colors">
-                         {getCategoryIcon(product.category)}
-                       </div>
+                       <ImageOff className="w-8 h-8 opacity-30" />
                      )}
                   </div>
                   <div className="p-3">
@@ -207,13 +197,7 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
           ) : (
             cart.map(item => (
               <div key={item.id} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                {item.image ? (
-                   <img src={item.image} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
-                ) : (
-                   <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
-                     <ShoppingBag className="w-5 h-5"/>
-                   </div>
-                )}
+                {item.image && <img src={item.image} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />}
                 <div className="flex-1">
                   <h4 className="font-medium text-sm text-gray-800 line-clamp-1">{item.name}</h4>
                   <p className="text-xs text-brand-600 font-bold">${(item.price * item.quantity).toLocaleString()}</p>
@@ -308,3 +292,24 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
     </div>
   );
 };
+
+function ShoppingBag(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+      <path d="M3 6h18" />
+      <path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  );
+}

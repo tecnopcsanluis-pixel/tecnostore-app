@@ -2,8 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Product } from "../types";
 
-// Ensure API Key is handled safely for build process
-const API_KEY = process.env.API_KEY || 'BUILD_KEY';
+const API_KEY = process.env.API_KEY || '';
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
@@ -53,8 +52,7 @@ export const GeminiService = {
       return JSON.parse(jsonStr);
     } catch (error) {
       console.error("Error parsing inventory with Gemini:", error);
-      // In production, we might want to fail silently or return empty
-      return [];
+      throw new Error("No se pudo procesar el texto con IA. Verifica tu API Key o el formato del texto.");
     }
   },
 
@@ -97,11 +95,10 @@ export const GeminiService = {
         },
       });
 
-      // Fix: Robust null checking for TypeScript strict mode
-      const candidate = response.candidates?.[0];
-      if (candidate?.content?.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.inlineData && part.inlineData.data) {
+      // Iterate through parts to find the image
+      if (response.candidates && response.candidates[0].content.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
             return part.inlineData.data;
           }
         }
@@ -109,9 +106,7 @@ export const GeminiService = {
       return null;
     } catch (error) {
       console.error("Error generating image:", error);
-      // Return null instead of throwing to prevent app crash
-      return null;
+      throw error;
     }
   }
 };
-

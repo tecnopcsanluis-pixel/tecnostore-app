@@ -1,51 +1,54 @@
 
 import { Product, Sale, CashClosure, Expense } from '../types';
 
-// Changed keys to '_v2' to force a clean slate for the user, removing old cached images.
 const KEYS = {
-  PRODUCTS: 'tecnostore_products_v2', 
-  SALES: 'tecnostore_sales_v2',
-  CLOSURES: 'tecnostore_closures_v2',
-  EXPENSES: 'tecnostore_expenses_v2',
+  PRODUCTS: 'tecnostore_products',
+  SALES: 'tecnostore_sales',
+  CLOSURES: 'tecnostore_closures',
+  EXPENSES: 'tecnostore_expenses',
 };
 
-// Mock Initial Data - CLEAN without images, relying on the UI fallback icons
+// Mock Initial Data with Images (Using generic placeholders for demo stability)
 const INITIAL_PRODUCTS: Product[] = [
   { 
     id: '1', 
     name: 'Funda iPhone 14 Pro', 
     category: 'Fundas', 
     price: 15000, 
-    stock: 20
-    // No image provided, will use generic icon
+    stock: 20,
+    image: 'https://images.unsplash.com/photo-1664478383314-704bf6325ade?auto=format&fit=crop&w=300&q=80'
   },
   { 
     id: '2', 
     name: 'Cable USB-C Carga Rápida', 
     category: 'Cables', 
     price: 8500, 
-    stock: 50
+    stock: 50,
+    image: 'https://images.unsplash.com/photo-1609619387578-1483a4795561?auto=format&fit=crop&w=300&q=80'
   },
   { 
     id: '3', 
     name: 'Vidrio Templado Samsung S23', 
     category: 'Protectores', 
     price: 5000, 
-    stock: 30
+    stock: 30,
+    image: 'https://images.unsplash.com/photo-1677751985372-8d9f87835283?auto=format&fit=crop&w=300&q=80'
   },
   { 
     id: '4', 
     name: 'Cargador 20W Original', 
     category: 'Cargadores', 
     price: 25000, 
-    stock: 15
+    stock: 15,
+    image: 'https://images.unsplash.com/photo-1615526675159-e248c3021d3f?auto=format&fit=crop&w=300&q=80'
   },
   { 
     id: '5', 
     name: 'Auriculares Bluetooth TWS', 
     category: 'Audio', 
     price: 35000, 
-    stock: 10
+    stock: 10,
+    image: 'https://images.unsplash.com/photo-1572569028738-411a197b83cd?auto=format&fit=crop&w=300&q=80'
   },
 ];
 
