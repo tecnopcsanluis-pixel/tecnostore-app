@@ -54,6 +54,14 @@ export interface CashClosure {
   notes?: string;
 }
 
+export interface CompanySettings {
+  name: string;
+  address: string;
+  phone: string;
+  footerMessage: string;
+  logoUrl?: string;
+}
+
 export interface SalesSummary {
   name: string;
   value: number;

@@ -5,23 +5,38 @@ import {
   doc, 
   onSnapshot, 
   query, 
-  setDoc
+  setDoc,
+  getDoc
 } from 'firebase/firestore';
 import { db, isFirebaseEnabled } from '../firebaseConfig';
-import { Product, Sale, CashClosure, Expense } from '../types';
+import { Product, Sale, CashClosure, Expense, CompanySettings } from '../types';
 
 const COLS = {
   PRODUCTS: 'products',
   SALES: 'sales',
   EXPENSES: 'expenses',
-  CLOSURES: 'closures'
+  CLOSURES: 'closures',
+  SETTINGS: 'settings'
 };
 
-// Helper para manejar errores de Firebase
+// --- FIX CRÍTICO: Limpiador de datos ---
+// Convierte undefined a null para evitar errores en Firebase
+const cleanData = (data: any) => {
+  const cleaned = { ...data };
+  Object.keys(cleaned).forEach(key => {
+    if (cleaned[key] === undefined) {
+      cleaned[key] = null;
+    }
+  });
+  return cleaned;
+};
+
 const handleError = (error: any, action: string) => {
   console.error(`Error en ${action}:`, error);
   if (error.code === 'permission-denied') {
     alert(`ERROR DE PERMISOS: Firebase rechazó la operación "${action}". \n\nSOLUCIÓN: Ve a Firebase Console -> Firestore Database -> Reglas, y cambia "allow read, write: if false;" por "allow read, write: if true;"`);
+  } else if (error.message && error.message.includes("undefined")) {
+    alert(`Error de datos: Campo indefinido detectado en ${action}. (Corregido automáticamente en el próximo intento)`);
   } else {
     alert(`Error al guardar en la nube (${action}): ${error.message}`);
   }
@@ -30,6 +45,24 @@ const handleError = (error: any, action: string) => {
 
 export const StorageService = {
   
+  // --- CONFIGURACIÓN ---
+  getSettings: async (): Promise<CompanySettings | null> => {
+    if (!isFirebaseEnabled || !db) return null;
+    try {
+      const docRef = doc(db, COLS.SETTINGS, 'company');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) return snap.data() as CompanySettings;
+      return null;
+    } catch (e) { console.error("Error fetching settings", e); return null; }
+  },
+
+  saveSettings: async (settings: CompanySettings) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      await setDoc(doc(db, COLS.SETTINGS, 'company'), cleanData(settings));
+    } catch (e) { handleError(e, 'Guardar Configuración'); }
+  },
+
   // --- PRODUCTOS ---
   subscribeToProducts: (callback: (products: Product[]) => void) => {
     if (isFirebaseEnabled && db) {
@@ -46,7 +79,7 @@ export const StorageService = {
     if (!isFirebaseEnabled || !db) return;
     try {
       const { id, ...data } = product;
-      await setDoc(doc(db, COLS.PRODUCTS, id), data);
+      await setDoc(doc(db, COLS.PRODUCTS, id), cleanData(data));
     } catch (e) { handleError(e, 'Agregar Producto'); }
   },
 
@@ -54,7 +87,7 @@ export const StorageService = {
     if (!isFirebaseEnabled || !db) return;
     try {
       const { id, ...data } = product;
-      await updateDoc(doc(db, COLS.PRODUCTS, id), data);
+      await updateDoc(doc(db, COLS.PRODUCTS, id), cleanData(data));
     } catch (e) { handleError(e, 'Actualizar Producto'); }
   },
 
@@ -81,7 +114,7 @@ export const StorageService = {
     if (!isFirebaseEnabled || !db) return;
     try {
       const { id, ...data } = sale;
-      await setDoc(doc(db, COLS.SALES, id), data);
+      await setDoc(doc(db, COLS.SALES, id), cleanData(data));
     } catch (e) { handleError(e, 'Registrar Venta'); }
   },
 
@@ -101,7 +134,7 @@ export const StorageService = {
     if (!isFirebaseEnabled || !db) return;
     try {
       const { id, ...data } = expense;
-      await setDoc(doc(db, COLS.EXPENSES, id), data);
+      await setDoc(doc(db, COLS.EXPENSES, id), cleanData(data));
     } catch (e) { handleError(e, 'Agregar Gasto'); }
   },
 
@@ -128,7 +161,7 @@ export const StorageService = {
     if (!isFirebaseEnabled || !db) return;
     try {
       const { id, ...data } = closure;
-      await setDoc(doc(db, COLS.CLOSURES, id), data);
+      await setDoc(doc(db, COLS.CLOSURES, id), cleanData(data));
     } catch (e) { handleError(e, 'Cerrar Caja'); }
   }
 };

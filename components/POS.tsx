@@ -1,20 +1,22 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Product, CartItem, PaymentMethod, Sale } from '../types';
-import { Search, ShoppingCart, Trash, Plus, Minus, CheckCircle, ShoppingBag, Smartphone, Headphones, Zap } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Product, CartItem, PaymentMethod, Sale, CompanySettings } from '../types';
+import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface POSProps {
   products: Product[];
+  settings: CompanySettings;
   onCheckout: (sale: Sale) => void;
 }
 
-export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
+export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [discount, setDiscount] = useState(0);
   const [surcharge, setSurcharge] = useState(false);
+  const [lastSale, setLastSale] = useState<Sale | null>(null);
 
   const filtered = products.filter(p => 
     (p.name.toLowerCase().includes(searchTerm.toLowerCase())) && 
@@ -41,7 +43,7 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
 
   const handleCheckout = () => {
     if (!cart.length) return;
-    onCheckout({
+    const newSale: Sale = {
       id: uuidv4(),
       date: new Date().toISOString(),
       items: cart,
@@ -50,12 +52,71 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
       surcharge: totals.surAmt,
       total: totals.total,
       paymentMethod
-    });
+    };
+    onCheckout(newSale);
+    setLastSale(newSale);
     setCart([]);
     setDiscount(0);
     setSurcharge(false);
     setPaymentMethod(PaymentMethod.CASH);
-    alert('Venta registrada!');
+    // Auto print or ask?
+    if(confirm('Venta registrada. ¿Imprimir ticket?')) {
+      printTicket(newSale);
+    }
+  };
+
+  const printTicket = (sale: Sale) => {
+    const win = window.open('', 'PRINT', 'height=600,width=400');
+    if (!win) return;
+    
+    win.document.write(`
+      <html>
+        <head>
+          <style>
+            body { font-family: monospace; padding: 20px; text-align: center; }
+            .header { margin-bottom: 20px; }
+            .item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
+            .total { font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px dashed black; padding-top: 10px; }
+            .footer { margin-top: 20px; font-size: 10px; }
+            hr { border-top: 1px dashed black; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h3>${settings?.name || 'TecnoStore'}</h3>
+            <p>${settings?.address || ''}<br/>${settings?.phone || ''}</p>
+          </div>
+          <hr/>
+          <div style="text-align:left; font-size:12px; margin: 10px 0;">
+            Fecha: ${new Date(sale.date).toLocaleString()}<br/>
+            Ticket: #${sale.id.slice(0, 8)}<br/>
+            Pago: ${sale.paymentMethod}
+          </div>
+          <hr/>
+          <div class="items">
+            ${sale.items.map(i => `
+              <div class="item">
+                <span>${i.quantity} x ${i.name}</span>
+                <span>$${(i.price * i.quantity).toLocaleString()}</span>
+              </div>
+            `).join('')}
+          </div>
+          <hr/>
+          ${sale.discount > 0 ? `<div class="item"><span>Descuento</span><span>-$${sale.discount}</span></div>` : ''}
+          ${sale.surcharge > 0 ? `<div class="item"><span>Recargo</span><span>+$${sale.surcharge}</span></div>` : ''}
+          <div class="total">
+            TOTAL: $${sale.total.toLocaleString()}
+          </div>
+          <div class="footer">
+            <p>${settings?.footerMessage || 'Gracias por su compra'}</p>
+          </div>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
   };
 
   return (
@@ -88,7 +149,14 @@ export const POS: React.FC<POSProps> = ({ products, onCheckout }) => {
       </div>
 
       <div className="w-full lg:w-96 bg-white rounded-xl shadow-xl flex flex-col border">
-        <div className="p-4 border-b font-bold flex gap-2 items-center"><ShoppingCart className="text-brand-500"/> Carrito</div>
+        <div className="p-4 border-b font-bold flex justify-between items-center">
+          <div className="flex gap-2 items-center"><ShoppingCart className="text-brand-500"/> Carrito</div>
+          {lastSale && (
+            <button onClick={() => printTicket(lastSale)} className="text-xs flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-2 py-1 rounded">
+              <Printer size={12}/> Último Ticket
+            </button>
+          )}
+        </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.map(i => (
             <div key={i.id} className="flex gap-3 items-center">

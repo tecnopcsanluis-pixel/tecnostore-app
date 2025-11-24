@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { Sale, CashClosure, PaymentMethod, Expense } from '../types';
-import { Wallet, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sale, CashClosure, PaymentMethod, Expense, CompanySettings } from '../types';
+import { Wallet, Calendar, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CashRegisterProps {
   sales: Sale[];
   expenses: Expense[];
   closures: CashClosure[];
+  settings: CompanySettings;
   onCloseRegister: (closure: CashClosure) => void;
   lastClosureDate: Date | null;
 }
 
-export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, closures, onCloseRegister, lastClosureDate }) => {
+export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, closures, settings, onCloseRegister, lastClosureDate }) => {
   const [notes, setNotes] = useState('');
   const [showHistory, setShowHistory] = useState(false);
 
@@ -21,8 +22,8 @@ export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, clo
   const stats = useMemo(() => {
     const salesCash = currentSales.filter(s => s.paymentMethod === PaymentMethod.CASH).reduce((a, s) => a + s.total, 0);
     const salesDigital = currentSales.filter(s => s.paymentMethod !== PaymentMethod.CASH).reduce((a, s) => a + s.total, 0);
-    const expensesCash = currentExpenses.filter(e => e.paymentMethod === PaymentMethod.CASH).reduce((a, e) => a + e.amount, 0);
     const totalExpenses = currentExpenses.reduce((a, e) => a + e.amount, 0);
+    const expensesCash = currentExpenses.filter(e => e.paymentMethod === PaymentMethod.CASH).reduce((a, e) => a + e.amount, 0);
     
     return {
       totalSales: salesCash + salesDigital,
@@ -34,9 +35,48 @@ export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, clo
     };
   }, [currentSales, currentExpenses]);
 
+  const printClosure = (closureData: any, isPreview = false) => {
+    const win = window.open('', 'PRINT', 'height=600,width=400');
+    if (!win) return;
+    
+    win.document.write(`
+      <html>
+        <head>
+          <style>
+            body { font-family: monospace; padding: 20px; }
+            .header { text-align: center; margin-bottom: 20px; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+            hr { border-top: 1px dashed black; }
+            h2 { text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h3>${settings?.name || 'TecnoStore'}</h3>
+            <p>CIERRE DE CAJA ${isPreview ? '(VISTA PREVIA)' : ''}</p>
+            <p>${new Date().toLocaleString()}</p>
+          </div>
+          <hr/>
+          <div class="row"><span>Ventas Efectivo:</span> <span>$${closureData.salesCash || 0}</span></div>
+          <div class="row"><span>Ventas Digital:</span> <span>$${closureData.totalDigital || 0}</span></div>
+          <div class="row"><span>Total Ventas:</span> <span>$${(closureData.salesCash || 0) + (closureData.totalDigital || 0)}</span></div>
+          <hr/>
+          <div class="row"><span>Gastos:</span> <span>-$${closureData.totalExpenses}</span></div>
+          <hr/>
+          <h2>EFECTIVO NETO: $${closureData.totalCash || closureData.netCash}</h2>
+          <p>Notas: ${closureData.notes || '-'}</p>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  };
+
   const handleClose = () => {
     if (!confirm(`Cerrar caja con $${stats.netCash.toLocaleString()} en efectivo?`)) return;
-    onCloseRegister({
+    const closure: CashClosure = {
       id: uuidv4(),
       date: new Date().toISOString(),
       totalSales: stats.totalSales,
@@ -45,13 +85,18 @@ export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, clo
       totalDigital: stats.salesDigital,
       transactionCount: stats.count,
       notes
-    });
+    };
+    onCloseRegister(closure);
+    printClosure({...closure, salesCash: stats.salesCash});
     setNotes('');
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Cierre de Caja</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">Cierre de Caja</h1>
+        <button onClick={() => printClosure(stats, true)} className="flex items-center gap-2 text-brand-600 bg-brand-50 px-3 py-2 rounded-lg font-medium"><Printer size={18}/> Previsualizar</button>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
@@ -83,7 +128,7 @@ export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, clo
         {showHistory && (
           <div className="bg-white mt-4 rounded-xl shadow overflow-hidden">
             <table className="w-full text-left">
-              <thead className="bg-gray-50"><tr><th className="p-4">Fecha</th><th className="p-4">Efec.</th><th className="p-4">Dig.</th><th className="p-4">Gastos</th><th className="p-4">Notas</th></tr></thead>
+              <thead className="bg-gray-50"><tr><th className="p-4">Fecha</th><th className="p-4">Efec.</th><th className="p-4">Dig.</th><th className="p-4">Gastos</th><th className="p-4"></th></tr></thead>
               <tbody>
                 {[...closures].reverse().map(c => (
                   <tr key={c.id} className="border-t">
@@ -91,7 +136,9 @@ export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, clo
                     <td className="p-4 text-green-600 font-medium">${c.totalCash}</td>
                     <td className="p-4 text-blue-600">${c.totalDigital}</td>
                     <td className="p-4 text-red-500">${c.totalExpenses}</td>
-                    <td className="p-4 text-gray-500 text-sm">{c.notes}</td>
+                    <td className="p-4 text-right">
+                       <button onClick={() => printClosure(c)} className="text-gray-500 hover:text-gray-800"><Printer size={16}/></button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

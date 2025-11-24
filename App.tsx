@@ -6,8 +6,16 @@ import { Inventory } from './components/Inventory';
 import { SalesHistory } from './components/SalesHistory';
 import { CashRegister } from './components/CashRegister';
 import { Expenses } from './components/Expenses';
-import { Product, Sale, CashClosure, Expense } from './types';
+import { Settings } from './components/Settings';
+import { Product, Sale, CashClosure, Expense, CompanySettings } from './types';
 import { StorageService } from './services/storageService';
+
+const DEFAULT_SETTINGS: CompanySettings = {
+  name: 'TecnoStore',
+  address: 'Dirección del Local',
+  phone: 'Teléfono',
+  footerMessage: '¡Gracias por su compra!'
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState('pos');
@@ -15,9 +23,16 @@ function App() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [closures, setClosures] = useState<CashClosure[]>([]);
+  const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const loadData = async () => {
+      const storedSettings = await StorageService.getSettings();
+      if (storedSettings) setSettings(storedSettings);
+    };
+    loadData();
+
     const unsubProducts = StorageService.subscribeToProducts((data) => {
       setProducts(data);
       setIsLoading(false);
@@ -39,10 +54,7 @@ function App() {
   const handleDeleteProduct = async (id: string) => await StorageService.deleteProduct(id);
 
   const handleCheckout = async (newSale: Sale) => {
-    // 1. Guardar Venta
     await StorageService.addSale(newSale);
-    
-    // 2. Actualizar Stock (Corregido para esperar a que termine usando Promise.all)
     const updates = newSale.items.map(async (item) => {
       const original = products.find(p => p.id === item.id);
       if (original) {
@@ -52,7 +64,6 @@ function App() {
         });
       }
     });
-    
     await Promise.all(updates);
   };
 
@@ -64,6 +75,12 @@ function App() {
     alert('¡Caja cerrada y guardada en la nube!');
   };
 
+  const handleSaveSettings = async (newSettings: CompanySettings) => {
+    await StorageService.saveSettings(newSettings);
+    setSettings(newSettings);
+    alert('Configuración guardada.');
+  };
+
   const lastClosureDate = React.useMemo(() => {
     if (closures.length === 0) return null;
     const sorted = [...closures].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -71,16 +88,17 @@ function App() {
   }, [closures]);
 
   const renderContent = () => {
-    if (isLoading) return <div className="flex items-center justify-center h-full text-brand-500 animate-pulse font-bold text-xl">Conectando con Firebase...</div>;
+    if (isLoading) return <div className="flex items-center justify-center h-full text-brand-500 animate-pulse font-bold text-xl">Conectando con TecnoStore Cloud...</div>;
 
     switch (activeTab) {
       case 'dashboard': return <Dashboard sales={sales} products={products} />;
-      case 'pos': return <POS products={products} onCheckout={handleCheckout} />;
+      case 'pos': return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
       case 'inventory': return <Inventory products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
       case 'expenses': return <Expenses expenses={expenses} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
-      case 'history': return <SalesHistory sales={sales} />;
-      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} onCloseRegister={handleCloseRegister} lastClosureDate={lastClosureDate} />;
-      default: return <POS products={products} onCheckout={handleCheckout} />;
+      case 'history': return <SalesHistory sales={sales} settings={settings} />;
+      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} settings={settings} onCloseRegister={handleCloseRegister} lastClosureDate={lastClosureDate} />;
+      case 'settings': return <Settings settings={settings} onSave={handleSaveSettings} />;
+      default: return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
     }
   };
 
