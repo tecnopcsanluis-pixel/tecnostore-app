@@ -42,7 +42,7 @@ function App() {
     // 1. Guardar Venta
     await StorageService.addSale(newSale);
     
-    // 2. Actualizar Stock (Corregido para esperar a que termine)
+    // 2. Actualizar Stock (Corregido para esperar a que termine usando Promise.all)
     const updates = newSale.items.map(async (item) => {
       const original = products.find(p => p.id === item.id);
       if (original) {

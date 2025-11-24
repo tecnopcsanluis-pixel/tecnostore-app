@@ -1,4 +1,3 @@
-
 export interface Product {
   id: string;
   name: string;
@@ -27,7 +26,7 @@ export interface Sale {
   items: CartItem[];
   subtotal: number;
   discount: number;
-  surcharge: number; // Added for the 10% increase
+  surcharge: number;
   total: number;
   paymentMethod: PaymentMethod;
   cashierId?: string;
@@ -48,20 +47,13 @@ export interface CashClosure {
   id: string;
   date: string;
   totalSales: number;
-  totalExpenses: number; // New field
-  totalCash: number; // This is Net Cash (Sales Cash - Expenses Cash)
+  totalExpenses: number;
+  totalCash: number; // Net Cash (Sales - Expenses)
   totalDigital: number; 
   transactionCount: number;
   notes?: string;
 }
 
-export interface User {
-  id: string;
-  name: string;
-  role: 'admin' | 'cashier';
-}
-
-// Chart Data Types
 export interface SalesSummary {
   name: string;
   value: number;

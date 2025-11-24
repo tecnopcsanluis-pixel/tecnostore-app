@@ -1,11 +1,11 @@
 {
-  "name": "TecnoStore Manager",
+  "name": "TecnoStore Cloud",
   "short_name": "TecnoStore",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
-  "description": "Gestor de ventas e inventario para TecnoStore.",
+  "description": "Gestor de ventas e inventario Cloud.",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/641/641813.png",

@@ -1,4 +1,4 @@
 {
-  "name": "TecnoStore Manager",
-  "description": "Sistema de gestión de ventas e inventario para tienda de accesorios, con importación inteligente mediante IA."
+  "name": "TecnoStore Cloud Manager",
+  "description": "Sistema completo de gestión comercial con sincronización en nube (Firebase) e IA (Gemini)."
 }

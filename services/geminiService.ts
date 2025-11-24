@@ -1,31 +1,21 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Product } from "../types";
 
 const API_KEY = process.env.API_KEY || '';
-
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export const GeminiService = {
-  /**
-   * Parses unstructured text (copy-pasted from Excel) into structured Product objects.
-   */
   parseInventoryFromText: async (text: string): Promise<Omit<Product, 'id'>[]> => {
+    if (!API_KEY) throw new Error("Falta API KEY de Gemini en Vercel/Entorno.");
     if (!text.trim()) return [];
 
     try {
-      const model = "gemini-2.5-flash";
-      
       const response = await ai.models.generateContent({
-        model,
+        model: "gemini-2.5-flash",
         contents: `
-          I have a raw text list of products from an old inventory file. 
-          Please parse this text and extract product information.
-          If a category is not clear, infer it (e.g., Fundas, Cargadores, Audio, Varios).
-          Return the result as a strict JSON array.
-          
-          Here is the text data:
-          ${text}
+          Parse this text into a JSON array of products (name, category, price, stock).
+          Infer category if missing.
+          Text: ${text}
         `,
         config: {
           responseMimeType: "application/json",
@@ -34,11 +24,11 @@ export const GeminiService = {
             items: {
               type: Type.OBJECT,
               properties: {
-                name: { type: Type.STRING, description: "Product name" },
-                category: { type: Type.STRING, description: "Product category" },
-                price: { type: Type.NUMBER, description: "Price per unit" },
-                stock: { type: Type.NUMBER, description: "Quantity available" },
-                description: { type: Type.STRING, description: "Short description if available" }
+                name: { type: Type.STRING },
+                category: { type: Type.STRING },
+                price: { type: Type.NUMBER },
+                stock: { type: Type.NUMBER },
+                image: { type: Type.STRING, description: "Leave empty string" }
               },
               required: ["name", "price", "stock", "category"]
             }
@@ -46,67 +36,23 @@ export const GeminiService = {
         }
       });
 
-      const jsonStr = response.text;
-      if (!jsonStr) return [];
-      
-      return JSON.parse(jsonStr);
-    } catch (error) {
-      console.error("Error parsing inventory with Gemini:", error);
-      throw new Error("No se pudo procesar el texto con IA. Verifica tu API Key o el formato del texto.");
+      return JSON.parse(response.text || '[]');
+    } catch (error: any) {
+      console.error("Error AI:", error);
+      throw new Error(error.message || "Error al procesar con IA");
     }
   },
 
-  /**
-   * Generate a business insight based on sales data (Simple implementation)
-   */
   generateSalesInsight: async (salesDataSummary: string): Promise<string> => {
+    if (!API_KEY) return "Configura la API Key para ver consejos.";
     try {
        const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: `
-          Act as a business consultant for 'TecnoStore'. 
-          Analyze this brief sales summary and give me 2 short, encouraging tips or observations in Spanish.
-          
-          Summary:
-          ${salesDataSummary}
-        `,
+        contents: `Analiza este resumen de ventas de 'TecnoStore' y dame 2 consejos breves en español: ${salesDataSummary}`,
       });
-      return response.text || "Sigue vendiendo para obtener más consejos.";
+      return response.text || "Sin datos suficientes.";
     } catch (error) {
-      console.error(error);
-      return "No se pudieron generar consejos en este momento.";
-    }
-  },
-
-  /**
-   * Generates an image for a product using Gemini.
-   * Returns the Base64 string of the image.
-   */
-  generateProductImage: async (productName: string): Promise<string | null> => {
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-          parts: [
-            {
-              text: `Professional product photography of ${productName}. White background, studio lighting, high resolution, sleek, modern technology accessory. Center the object.`
-            },
-          ],
-        },
-      });
-
-      // Iterate through parts to find the image
-      if (response.candidates && response.candidates[0].content.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            return part.inlineData.data;
-          }
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error("Error generating image:", error);
-      throw error;
+      return "No se pudo conectar con la IA.";
     }
   }
 };
