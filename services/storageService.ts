@@ -31,24 +31,52 @@ const cleanData = (data: any) => {
   return cleaned;
 };
 
+let hasAlertedPermission = false;
+
 const handleError = (error: any, action: string) => {
   console.error(`Error en ${action}:`, error);
   if (error.code === 'permission-denied') {
-    alert(`ERROR DE PERMISOS: Firebase rechazó la operación "${action}". \n\nSOLUCIÓN: Ve a Firebase Console -> Firestore Database -> Reglas, y cambia "allow read, write: if false;" por "allow read, write: if true;"`);
+    if (!hasAlertedPermission) {
+      alert(`⛔ ERROR DE PERMISOS CRÍTICO ⛔\n\nFirebase está bloqueando el guardado de datos.\n\nSOLUCIÓN:\n1. Ve a Firebase Console -> Firestore Database -> Reglas\n2. Cambia "allow read, write: if false;" por "allow read, write: if true;"\n3. Dale a Publicar.`);
+      hasAlertedPermission = true;
+    }
   } else if (error.message && error.message.includes("undefined")) {
-    alert(`Error de datos: Campo indefinido detectado en ${action}. (Corregido automáticamente en el próximo intento)`);
+    alert(`Error de datos: Campo indefinido detectado en ${action}.`);
   } else {
-    // No alertar por errores de offline, son normales
     if (error.code !== 'unavailable') {
        console.warn(`Aviso nube (${action}): ${error.message}`);
     }
   }
-  // No lanzamos error para no romper la UI, solo logueamos
+};
+
+const handleSubscriptionError = (error: any, context: string) => {
+  console.error(`Error suscribiendo a ${context}:`, error);
+  if (error.code === 'permission-denied' && !hasAlertedPermission) {
+    alert(`⛔ ERROR DE CONEXIÓN ⛔\n\nNo tienes permiso para LEER los datos de ${context}.\n\nRevisa las Reglas de Seguridad en Firebase Console.`);
+    hasAlertedPermission = true;
+  }
 };
 
 export const StorageService = {
   
-  // --- CONFIGURACIÓN (Ahora con Suscripción Offline-First) ---
+  // --- UTILS DE DIAGNÓSTICO ---
+  testConnection: async () => {
+    if (!isFirebaseEnabled || !db) throw new Error("Firebase no inicializado");
+    try {
+      const testId = 'test_connection_' + Date.now();
+      await setDoc(doc(db, 'connection_test', testId), { 
+        status: 'ok', 
+        timestamp: new Date().toISOString() 
+      });
+      await deleteDoc(doc(db, 'connection_test', testId));
+      return true;
+    } catch (e: any) {
+      handleError(e, 'Prueba de Conexión');
+      throw e;
+    }
+  },
+
+  // --- CONFIGURACIÓN ---
   subscribeToSettings: (callback: (settings: CompanySettings | null) => void) => {
     if (isFirebaseEnabled && db) {
       const docRef = doc(db, COLS.SETTINGS, 'company');
@@ -58,12 +86,11 @@ export const StorageService = {
         } else {
           callback(null);
         }
-      }, (error) => console.log("Esperando conexión para configuración..."));
+      }, (error) => handleSubscriptionError(error, 'Configuración'));
     }
     return () => {};
   },
 
-  // Mantenemos getSettings por compatibilidad pero recomendamos subscribe
   getSettings: async (): Promise<CompanySettings | null> => {
     if (!isFirebaseEnabled || !db) return null;
     try {
@@ -88,7 +115,7 @@ export const StorageService = {
       return onSnapshot(q, (snapshot) => {
         const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         callback(products);
-      }, (error) => console.error("Error suscribiendo a productos:", error));
+      }, (error) => handleSubscriptionError(error, 'Productos'));
     }
     return () => {};
   },
@@ -123,7 +150,7 @@ export const StorageService = {
       return onSnapshot(q, (snapshot) => {
         const sales = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
         callback(sales);
-      }, (error) => console.error("Error suscribiendo a ventas:", error));
+      }, (error) => handleSubscriptionError(error, 'Ventas'));
     }
     return () => {};
   },
@@ -143,7 +170,7 @@ export const StorageService = {
       return onSnapshot(q, (snapshot) => {
         const expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
         callback(expenses);
-      }, (error) => console.error("Error suscribiendo a gastos:", error));
+      }, (error) => handleSubscriptionError(error, 'Gastos'));
     }
     return () => {};
   },
@@ -170,7 +197,7 @@ export const StorageService = {
       return onSnapshot(q, (snapshot) => {
         const closures = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashClosure));
         callback(closures);
-      }, (error) => console.error("Error suscribiendo a cierres:", error));
+      }, (error) => handleSubscriptionError(error, 'Cierres'));
     }
     return () => {};
   },
