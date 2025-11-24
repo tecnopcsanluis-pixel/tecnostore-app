@@ -19,6 +19,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
   const [productForm, setProductForm] = useState<Partial<Product>>({});
   const [importText, setImportText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,37 +30,53 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
 
   const handleSave = async () => {
     if (!productForm.name || !productForm.price) return;
-    if (editingId) {
-      await onUpdateProduct({ ...productForm, id: editingId } as Product);
-    } else {
-      await onAddProduct({
-        id: uuidv4(),
-        name: productForm.name,
-        category: productForm.category || 'General',
-        price: Number(productForm.price),
-        stock: Number(productForm.stock) || 0,
-        image: productForm.image
-      } as Product);
+    setIsSaving(true);
+    try {
+      if (editingId) {
+        await onUpdateProduct({ ...productForm, image: productForm.image || '', id: editingId } as Product);
+      } else {
+        await onAddProduct({
+          id: uuidv4(),
+          name: productForm.name,
+          category: productForm.category || 'General',
+          price: Number(productForm.price),
+          stock: Number(productForm.stock) || 0,
+          image: productForm.image || ''
+        } as Product);
+      }
+      setShowModal(false);
+      setProductForm({});
+      setEditingId(null);
+    } catch (e: any) {
+      alert('Error al guardar: ' + e.message);
+    } finally {
+      setIsSaving(false);
     }
-    setShowModal(false);
-    setProductForm({});
-    setEditingId(null);
   };
 
   const handleImport = async () => {
     setIsProcessing(true);
     try {
       const raw = await GeminiService.parseInventoryFromText(importText);
-      setPreviewProducts(raw.map(p => ({ ...p, id: uuidv4() } as Product)));
+      // FIX: Ensure image is not undefined
+      setPreviewProducts(raw.map(p => ({ ...p, id: uuidv4(), image: '' } as Product)));
     } catch (e: any) { alert(e.message); }
     setIsProcessing(false);
   };
 
   const confirmImport = async () => {
-    await Promise.all(previewProducts.map(p => onAddProduct(p)));
-    setPreviewProducts([]);
-    setShowImportModal(false);
-    alert('Importación completada.');
+    setIsSaving(true);
+    try {
+      await Promise.all(previewProducts.map(p => onAddProduct(p)));
+      setPreviewProducts([]);
+      setImportText('');
+      setShowImportModal(false);
+      alert('Importación completada con éxito.');
+    } catch (e: any) {
+      alert('Error al importar algunos productos: ' + e.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const compressImage = (base64: string) => {
@@ -95,14 +112,14 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
         <div className="flex gap-2">
-          <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center"><Upload size={18}/> Importar</button>
-          <button onClick={() => { setEditingId(null); setProductForm({}); setShowModal(true); }} className="px-4 py-2 bg-brand-600 text-white rounded-lg flex gap-2 items-center"><Plus size={18}/> Nuevo</button>
+          <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center hover:bg-emerald-200 transition"><Upload size={18}/> Importar</button>
+          <button onClick={() => { setEditingId(null); setProductForm({}); setShowModal(true); }} className="px-4 py-2 bg-brand-600 text-white rounded-lg flex gap-2 items-center hover:bg-brand-700 transition"><Plus size={18}/> Nuevo</button>
         </div>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-        <input className="w-full pl-10 p-2 border rounded-lg" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        <input className="w-full pl-10 p-2 border rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Buscar por nombre o categoría..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -118,28 +135,32 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
             </tr>
           </thead>
           <tbody>
-            {filtered.map(p => (
-              <tr key={p.id} className="border-t hover:bg-gray-50">
-                <td className="p-4">
-                  {p.image ? <img src={p.image} className="w-10 h-10 rounded object-cover"/> : <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center"><ImageIcon size={16} className="text-gray-400"/></div>}
-                </td>
-                <td className="p-4 font-medium">{p.name}</td>
-                <td className="p-4 text-sm text-gray-500">{p.category}</td>
-                <td className="p-4">${p.price}</td>
-                <td className="p-4"><span className={`px-2 py-1 rounded text-xs ${p.stock < 5 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{p.stock}</span></td>
-                <td className="p-4 text-right flex justify-end gap-2">
-                  <button onClick={() => { setEditingId(p.id); setProductForm(p); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
-                  <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
-                </td>
-              </tr>
-            ))}
+            {filtered.length === 0 ? (
+               <tr><td colSpan={6} className="text-center py-8 text-gray-400">No hay productos.</td></tr>
+            ) : (
+              filtered.map(p => (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="p-4">
+                    {p.image ? <img src={p.image} className="w-10 h-10 rounded object-cover shadow-sm"/> : <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center"><ImageIcon size={16} className="text-gray-400"/></div>}
+                  </td>
+                  <td className="p-4 font-medium text-gray-800">{p.name}</td>
+                  <td className="p-4 text-sm text-gray-600">{p.category}</td>
+                  <td className="p-4 font-bold text-brand-600">${p.price}</td>
+                  <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{p.stock}</span></td>
+                  <td className="p-4 text-right flex justify-end gap-2">
+                    <button onClick={() => { setEditingId(p.id); setProductForm(p); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
+                    <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex justify-between mb-4">
               <h3 className="font-bold text-lg">{editingId ? 'Editar' : 'Nuevo'} Producto</h3>
               <button onClick={() => setShowModal(false)}><X/></button>
@@ -155,7 +176,9 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
                 <input type="number" className="w-1/2 p-2 border rounded" placeholder="Precio" value={productForm.price || ''} onChange={e => setProductForm({...productForm, price: Number(e.target.value)})}/>
                 <input type="number" className="w-1/2 p-2 border rounded" placeholder="Stock" value={productForm.stock || ''} onChange={e => setProductForm({...productForm, stock: Number(e.target.value)})}/>
               </div>
-              <button onClick={handleSave} className="w-full py-2 bg-brand-600 text-white rounded font-bold mt-2">Guardar</button>
+              <button onClick={handleSave} disabled={isSaving} className="w-full py-2 bg-brand-600 text-white rounded font-bold mt-2 flex justify-center items-center gap-2">
+                 {isSaving ? <Loader2 className="animate-spin"/> : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>
@@ -163,8 +186,11 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
 
       {showImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
-            <h3 className="font-bold text-lg mb-4">Importar con IA</h3>
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg">Importar con IA</h3>
+              <button onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+            </div>
             {!previewProducts.length ? (
               <>
                 <textarea className="w-full border rounded p-2 h-32 text-sm" placeholder="Pega datos de Excel..." value={importText} onChange={e => setImportText(e.target.value)}/>
@@ -176,8 +202,10 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
               <>
                 <div className="bg-green-100 p-2 rounded text-green-800 text-center mb-4">{previewProducts.length} productos detectados.</div>
                 <div className="flex gap-2">
-                  <button onClick={() => setPreviewProducts([])} className="flex-1 border py-2 rounded">Cancelar</button>
-                  <button onClick={confirmImport} className="flex-1 bg-green-600 text-white py-2 rounded">Importar</button>
+                  <button onClick={() => setPreviewProducts([])} className="flex-1 border py-2 rounded">Volver</button>
+                  <button onClick={confirmImport} disabled={isSaving} className="flex-1 bg-green-600 text-white py-2 rounded flex justify-center items-center gap-2">
+                    {isSaving ? <Loader2 className="animate-spin"/> : 'Confirmar Importación'}
+                  </button>
                 </div>
               </>
             )}

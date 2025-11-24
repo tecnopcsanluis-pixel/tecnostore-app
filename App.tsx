@@ -27,11 +27,10 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = async () => {
-      const storedSettings = await StorageService.getSettings();
-      if (storedSettings) setSettings(storedSettings);
-    };
-    loadData();
+    // Suscripción a Configuración (Resistente a offline)
+    const unsubSettings = StorageService.subscribeToSettings((data) => {
+      if (data) setSettings(data);
+    });
 
     const unsubProducts = StorageService.subscribeToProducts((data) => {
       setProducts(data);
@@ -42,6 +41,7 @@ function App() {
     const unsubClosures = StorageService.subscribeToClosures((data) => setClosures(data));
 
     return () => {
+      unsubSettings();
       unsubProducts();
       unsubSales();
       unsubExpenses();
@@ -77,7 +77,7 @@ function App() {
 
   const handleSaveSettings = async (newSettings: CompanySettings) => {
     await StorageService.saveSettings(newSettings);
-    setSettings(newSettings);
+    // setSettings ya se actualiza solo por la suscripción
     alert('Configuración guardada.');
   };
 

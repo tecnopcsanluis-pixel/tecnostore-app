@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 
 // Configuración de TecnoStore
 const firebaseConfig = {
@@ -14,6 +14,15 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
-// Exportar base de datos y estado
+// Exportar base de datos
 export const db = getFirestore(app);
 export const isFirebaseEnabled = true;
+
+// Habilitar persistencia offline para que funcione sin internet
+enableIndexedDbPersistence(db).catch((err) => {
+  if (err.code == 'failed-precondition') {
+      console.warn('Persistencia fallida: multiples pestañas abiertas.');
+  } else if (err.code == 'unimplemented') {
+      console.warn('El navegador no soporta persistencia offline.');
+  }
+});

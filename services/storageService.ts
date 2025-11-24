@@ -38,14 +38,32 @@ const handleError = (error: any, action: string) => {
   } else if (error.message && error.message.includes("undefined")) {
     alert(`Error de datos: Campo indefinido detectado en ${action}. (Corregido automáticamente en el próximo intento)`);
   } else {
-    alert(`Error al guardar en la nube (${action}): ${error.message}`);
+    // No alertar por errores de offline, son normales
+    if (error.code !== 'unavailable') {
+       console.warn(`Aviso nube (${action}): ${error.message}`);
+    }
   }
-  throw error;
+  // No lanzamos error para no romper la UI, solo logueamos
 };
 
 export const StorageService = {
   
-  // --- CONFIGURACIÓN ---
+  // --- CONFIGURACIÓN (Ahora con Suscripción Offline-First) ---
+  subscribeToSettings: (callback: (settings: CompanySettings | null) => void) => {
+    if (isFirebaseEnabled && db) {
+      const docRef = doc(db, COLS.SETTINGS, 'company');
+      return onSnapshot(docRef, (doc) => {
+        if (doc.exists()) {
+          callback(doc.data() as CompanySettings);
+        } else {
+          callback(null);
+        }
+      }, (error) => console.log("Esperando conexión para configuración..."));
+    }
+    return () => {};
+  },
+
+  // Mantenemos getSettings por compatibilidad pero recomendamos subscribe
   getSettings: async (): Promise<CompanySettings | null> => {
     if (!isFirebaseEnabled || !db) return null;
     try {
@@ -53,7 +71,7 @@ export const StorageService = {
       const snap = await getDoc(docRef);
       if (snap.exists()) return snap.data() as CompanySettings;
       return null;
-    } catch (e) { console.error("Error fetching settings", e); return null; }
+    } catch (e) { return null; }
   },
 
   saveSettings: async (settings: CompanySettings) => {
