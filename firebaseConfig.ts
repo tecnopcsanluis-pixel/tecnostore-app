@@ -1,14 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 
-// Configuración de TecnoStore
+// Configuración de Firebase para TecnoStore
 const firebaseConfig = {
-  apiKey: "AIzaSyA3hpQwxwTaRFG57yL39c9EIjQK3VqCv5k",
-  authDomain: "tecnostore-34ec7.firebaseapp.com",
-  projectId: "tecnostore-34ec7",
-  storageBucket: "tecnostore-34ec7.firebasestorage.app",
-  messagingSenderId: "995733926300",
-  appId: "1:995733926300:web:06ac5429ba930c05389859"
+  apiKey: "AIzaSyBGCHrNR_btZLjHbX_ZqJfigjKeBVrFcis",
+  authDomain: "tecnostore-app.firebaseapp.com",
+  projectId: "tecnostore-app",
+  storageBucket: "tecnostore-app.firebasestorage.app",
+  messagingSenderId: "483928325380",
+  appId: "1:483928325380:web:17d9d16e8601f653076451"
 };
 
 // Inicializar Firebase
@@ -18,7 +18,7 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const isFirebaseEnabled = true;
 
-// Habilitar persistencia offline para que funcione sin internet
+// Habilitar persistencia offline (para que funcione si se corta internet)
 enableIndexedDbPersistence(db).catch((err) => {
   if (err.code == 'failed-precondition') {
       console.warn('Persistencia fallida: multiples pestañas abiertas.');
