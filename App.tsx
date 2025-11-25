@@ -14,7 +14,8 @@ const DEFAULT_SETTINGS: CompanySettings = {
   name: 'TecnoStore',
   address: 'Dirección del Local',
   phone: 'Teléfono',
-  footerMessage: '¡Gracias por su compra!'
+  footerMessage: '¡Gracias por su compra!',
+  adminPin: '1234' // PIN por defecto
 };
 
 function App() {
@@ -25,9 +26,11 @@ function App() {
   const [closures, setClosures] = useState<CashClosure[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // ESTADO DE ADMINISTRADOR
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Suscripción a Configuración (Resistente a offline)
     const unsubSettings = StorageService.subscribeToSettings((data) => {
       if (data) setSettings(data);
     });
@@ -49,6 +52,19 @@ function App() {
     };
   }, []);
 
+  const handleToggleAdmin = () => {
+    if (isAdmin) {
+      setIsAdmin(false); // Cerrar sesión admin
+    } else {
+      const pin = prompt('Ingrese PIN de Administrador:');
+      if (pin === (settings.adminPin || '1234')) {
+        setIsAdmin(true);
+      } else {
+        alert('PIN Incorrecto');
+      }
+    }
+  };
+
   const handleAddProduct = async (product: Product) => await StorageService.addProduct(product);
   const handleUpdateProduct = async (product: Product) => await StorageService.updateProduct(product);
   const handleDeleteProduct = async (id: string) => await StorageService.deleteProduct(id);
@@ -66,6 +82,8 @@ function App() {
     });
     await Promise.all(updates);
   };
+  
+  const handleDeleteSale = async (id: string) => await StorageService.deleteSale(id);
 
   const handleAddExpense = async (newExpense: Expense) => await StorageService.addExpense(newExpense);
   const handleDeleteExpense = async (id: string) => await StorageService.deleteExpense(id);
@@ -74,10 +92,11 @@ function App() {
     await StorageService.addClosure(closure);
     alert('¡Caja cerrada y guardada en la nube!');
   };
+  
+  const handleDeleteClosure = async (id: string) => await StorageService.deleteClosure(id);
 
   const handleSaveSettings = async (newSettings: CompanySettings) => {
     await StorageService.saveSettings(newSettings);
-    // setSettings ya se actualiza solo por la suscripción
     alert('Configuración guardada.');
   };
 
@@ -93,16 +112,20 @@ function App() {
     switch (activeTab) {
       case 'dashboard': return <Dashboard sales={sales} products={products} />;
       case 'pos': return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
-      case 'inventory': return <Inventory products={products} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
-      case 'expenses': return <Expenses expenses={expenses} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
-      case 'history': return <SalesHistory sales={sales} settings={settings} />;
-      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} settings={settings} onCloseRegister={handleCloseRegister} lastClosureDate={lastClosureDate} />;
-      case 'settings': return <Settings settings={settings} onSave={handleSaveSettings} />;
+      case 'inventory': return <Inventory products={products} isAdmin={isAdmin} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
+      case 'expenses': return <Expenses expenses={expenses} isAdmin={isAdmin} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
+      case 'history': return <SalesHistory sales={sales} isAdmin={isAdmin} settings={settings} onDeleteSale={handleDeleteSale} />;
+      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} settings={settings} isAdmin={isAdmin} onCloseRegister={handleCloseRegister} onDeleteClosure={handleDeleteClosure} lastClosureDate={lastClosureDate} />;
+      case 'settings': return <Settings settings={settings} isAdmin={isAdmin} onSave={handleSaveSettings} />;
       default: return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
     }
   };
 
-  return <Layout activeTab={activeTab} onTabChange={setActiveTab}>{renderContent()}</Layout>;
+  return (
+    <Layout activeTab={activeTab} onTabChange={setActiveTab} isAdmin={isAdmin} onToggleAdmin={handleToggleAdmin}>
+      {renderContent()}
+    </Layout>
+  );
 }
 
 export default App;

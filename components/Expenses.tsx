@@ -5,11 +5,12 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface ExpensesProps {
   expenses: Expense[];
+  isAdmin: boolean;
   onAddExpense: (expense: Expense) => void;
   onDeleteExpense: (id: string) => void;
 }
 
-export const Expenses: React.FC<ExpensesProps> = ({ expenses, onAddExpense, onDeleteExpense }) => {
+export const Expenses: React.FC<ExpensesProps> = ({ expenses, isAdmin, onAddExpense, onDeleteExpense }) => {
   const [form, setForm] = useState<Partial<Expense>>({ category: 'Local', paymentMethod: PaymentMethod.CASH });
   
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,7 +65,9 @@ export const Expenses: React.FC<ExpensesProps> = ({ expenses, onAddExpense, onDe
                 <td className="p-4 font-medium">{e.description}</td>
                 <td className="p-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs">{e.category}</span></td>
                 <td className="p-4 font-bold text-red-600">-${e.amount}</td>
-                <td className="p-4 text-right"><button onClick={() => onDeleteExpense(e.id)} className="text-gray-400 hover:text-red-600"><Trash2 size={16}/></button></td>
+                <td className="p-4 text-right">
+                  {isAdmin && <button onClick={() => onDeleteExpense(e.id)} className="text-gray-400 hover:text-red-600"><Trash2 size={16}/></button>}
+                </td>
               </tr>
             ))}
           </tbody>

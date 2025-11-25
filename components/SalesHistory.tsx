@@ -1,13 +1,15 @@
 import React from 'react';
 import { Sale, CompanySettings } from '../types';
-import { Clock, Printer } from 'lucide-react';
+import { Clock, Printer, Trash2 } from 'lucide-react';
 
 interface HistoryProps {
   sales: Sale[];
+  isAdmin: boolean;
   settings: CompanySettings;
+  onDeleteSale: (id: string) => void;
 }
 
-export const SalesHistory: React.FC<HistoryProps> = ({ sales, settings }) => {
+export const SalesHistory: React.FC<HistoryProps> = ({ sales, isAdmin, settings, onDeleteSale }) => {
   const printTicket = (sale: Sale) => {
     const win = window.open('', 'PRINT', 'height=600,width=400');
     if (!win) return;
@@ -58,6 +60,12 @@ export const SalesHistory: React.FC<HistoryProps> = ({ sales, settings }) => {
     win.close();
   };
 
+  const handleDelete = (id: string) => {
+    if (confirm('ATENCIÓN: ¿Borrar esta venta del historial? Esto no devuelve el stock automáticamente.')) {
+      onDeleteSale(id);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Historial</h1>
@@ -71,10 +79,15 @@ export const SalesHistory: React.FC<HistoryProps> = ({ sales, settings }) => {
                 <td className="p-4 text-sm">{s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}</td>
                 <td className="p-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs">{s.paymentMethod}</span></td>
                 <td className="p-4 font-bold">${s.total}</td>
-                <td className="p-4 text-right">
+                <td className="p-4 text-right flex justify-end gap-2">
                   <button onClick={() => printTicket(s)} className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg">
                     <Printer size={16}/>
                   </button>
+                  {isAdmin && (
+                    <button onClick={() => handleDelete(s.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                      <Trash2 size={16}/>
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

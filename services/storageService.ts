@@ -20,7 +20,6 @@ const COLS = {
 };
 
 // --- FIX CRÍTICO: Limpiador de datos ---
-// Convierte undefined a null para evitar errores en Firebase
 const cleanData = (data: any) => {
   const cleaned = { ...data };
   Object.keys(cleaned).forEach(key => {
@@ -163,6 +162,13 @@ export const StorageService = {
     } catch (e) { handleError(e, 'Registrar Venta'); }
   },
 
+  deleteSale: async (id: string) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      await deleteDoc(doc(db, COLS.SALES, id));
+    } catch (e) { handleError(e, 'Eliminar Venta'); }
+  },
+
   // --- GASTOS ---
   subscribeToExpenses: (callback: (expenses: Expense[]) => void) => {
     if (isFirebaseEnabled && db) {
@@ -208,5 +214,12 @@ export const StorageService = {
       const { id, ...data } = closure;
       await setDoc(doc(db, COLS.CLOSURES, id), cleanData(data));
     } catch (e) { handleError(e, 'Cerrar Caja'); }
+  },
+
+  deleteClosure: async (id: string) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      await deleteDoc(doc(db, COLS.CLOSURES, id));
+    } catch (e) { handleError(e, 'Eliminar Cierre'); }
   }
 };

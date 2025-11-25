@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { CompanySettings } from '../types';
-import { Save, Store, Activity, CheckCircle, AlertCircle } from 'lucide-react';
+import { Save, Store, Activity, CheckCircle, AlertCircle, Lock } from 'lucide-react';
 import { StorageService } from '../services/storageService';
 
 interface SettingsProps {
   settings: CompanySettings;
+  isAdmin: boolean;
   onSave: (settings: CompanySettings) => void;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, isAdmin, onSave }) => {
   const [form, setForm] = useState<CompanySettings>(settings);
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -33,6 +34,16 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
       setErrorMsg(e.message || 'Error desconocido');
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+        <Lock size={64} className="mb-4 text-gray-300"/>
+        <h2 className="text-xl font-bold">Acceso Restringido</h2>
+        <p>Debes activar el Modo Administrador para editar la configuración.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -65,9 +76,6 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
           <div className="mt-3 text-red-700 bg-red-100 p-2 rounded text-sm">
             <div className="flex items-center gap-2 font-bold"><AlertCircle size={16}/> Error de Conexión</div>
             <p className="mt-1">{errorMsg}</p>
-            {errorMsg.includes('permission-denied') && (
-              <p className="mt-2 font-bold underline">¡FALTAN PERMISOS EN FIREBASE! Revisa las reglas en la consola.</p>
-            )}
           </div>
         )}
       </div>
@@ -91,6 +99,12 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onSave }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje al Pie del Ticket</label>
           <input className="w-full p-3 border rounded-lg" value={form.footerMessage} onChange={e => setForm({...form, footerMessage: e.target.value})} placeholder="Ej: ¡Gracias por su compra!" />
+        </div>
+
+        <div className="pt-4 border-t">
+          <label className="block text-sm font-bold text-red-600 mb-1 flex items-center gap-2"><Lock size={14}/> PIN de Administrador (Seguridad)</label>
+          <p className="text-xs text-gray-400 mb-2">Clave para borrar ventas, productos y cerrar caja.</p>
+          <input type="password" className="w-full p-3 border rounded-lg bg-red-50" value={form.adminPin || ''} onChange={e => setForm({...form, adminPin: e.target.value})} placeholder="1234" />
         </div>
 
         <button type="submit" className="w-full py-3 bg-brand-600 text-white rounded-lg font-bold hover:bg-brand-700 flex items-center justify-center gap-2 shadow-lg shadow-brand-500/30">

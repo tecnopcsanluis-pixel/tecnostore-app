@@ -60,6 +60,7 @@ export interface CompanySettings {
   phone: string;
   footerMessage: string;
   logoUrl?: string;
+  adminPin?: string; // Nuevo PIN de seguridad
 }
 
 export interface SalesSummary {

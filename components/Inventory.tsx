@@ -6,12 +6,13 @@ import { v4 as uuidv4 } from 'uuid';
 
 export interface InventoryProps {
   products: Product[];
+  isAdmin: boolean;
   onAddProduct: (product: Product) => void | Promise<void>;
   onUpdateProduct: (product: Product) => void | Promise<void>;
   onDeleteProduct: (id: string) => void | Promise<void>;
 }
 
-export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, onUpdateProduct, onDeleteProduct }) => {
+export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddProduct, onUpdateProduct, onDeleteProduct }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -58,7 +59,6 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
     setIsProcessing(true);
     try {
       const raw = await GeminiService.parseInventoryFromText(importText);
-      // FIX: Ensure image is not undefined
       setPreviewProducts(raw.map(p => ({ ...p, id: uuidv4(), image: '' } as Product)));
     } catch (e: any) { alert(e.message); }
     setIsProcessing(false);
@@ -112,7 +112,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
         <div className="flex gap-2">
-          <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center hover:bg-emerald-200 transition"><Upload size={18}/> Importar</button>
+          {isAdmin && <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center hover:bg-emerald-200 transition"><Upload size={18}/> Importar</button>}
           <button onClick={() => { setEditingId(null); setProductForm({}); setShowModal(true); }} className="px-4 py-2 bg-brand-600 text-white rounded-lg flex gap-2 items-center hover:bg-brand-700 transition"><Plus size={18}/> Nuevo</button>
         </div>
       </div>
@@ -149,7 +149,9 @@ export const Inventory: React.FC<InventoryProps> = ({ products, onAddProduct, on
                   <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{p.stock}</span></td>
                   <td className="p-4 text-right flex justify-end gap-2">
                     <button onClick={() => { setEditingId(p.id); setProductForm(p); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
-                    <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                    {isAdmin && (
+                      <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                    )}
                   </td>
                 </tr>
               ))

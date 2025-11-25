@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Sale, CashClosure, PaymentMethod, Expense, CompanySettings } from '../types';
-import { Wallet, Calendar, ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CashRegisterProps {
@@ -8,11 +8,13 @@ interface CashRegisterProps {
   expenses: Expense[];
   closures: CashClosure[];
   settings: CompanySettings;
+  isAdmin: boolean;
   onCloseRegister: (closure: CashClosure) => void;
+  onDeleteClosure: (id: string) => void;
   lastClosureDate: Date | null;
 }
 
-export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, closures, settings, onCloseRegister, lastClosureDate }) => {
+export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, closures, settings, isAdmin, onCloseRegister, onDeleteClosure, lastClosureDate }) => {
   const [notes, setNotes] = useState('');
   const [showHistory, setShowHistory] = useState(false);
 
@@ -136,8 +138,11 @@ export const CashRegister: React.FC<CashRegisterProps> = ({ sales, expenses, clo
                     <td className="p-4 text-green-600 font-medium">${c.totalCash}</td>
                     <td className="p-4 text-blue-600">${c.totalDigital}</td>
                     <td className="p-4 text-red-500">${c.totalExpenses}</td>
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right flex justify-end gap-2">
                        <button onClick={() => printClosure(c)} className="text-gray-500 hover:text-gray-800"><Printer size={16}/></button>
+                       {isAdmin && (
+                         <button onClick={() => {if(confirm('¿Eliminar cierre?')) onDeleteClosure(c.id)}} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
+                       )}
                     </td>
                   </tr>
                 ))}
