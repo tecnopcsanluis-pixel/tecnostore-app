@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { POS } from './components/POS';
@@ -24,7 +24,7 @@ function App() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [closures, setClosures] = useState<CashClosure[]>([]);
-  const [openings, setOpenings] = useState<CashOpening[]>([]); // Nuevo
+  const [openings, setOpenings] = useState<CashOpening[]>([]);
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -36,12 +36,31 @@ function App() {
     const unsubSales = StorageService.subscribeToSales((data) => setSales(data));
     const unsubExpenses = StorageService.subscribeToExpenses((data) => setExpenses(data));
     const unsubClosures = StorageService.subscribeToClosures((data) => setClosures(data));
-    const unsubOpenings = StorageService.subscribeToOpenings((data) => setOpenings(data)); // Nuevo
+    const unsubOpenings = StorageService.subscribeToOpenings((data) => setOpenings(data));
 
     return () => {
       unsubSettings(); unsubProducts(); unsubSales(); unsubExpenses(); unsubClosures(); unsubOpenings();
     };
   }, []);
+
+  // --- LÓGICA DE ESTADO DE CAJA (Calculada aquí para proteger el POS) ---
+  const lastClosure = useMemo(() => {
+    if (!closures.length) return null;
+    return [...closures].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  }, [closures]);
+
+  const lastOpening = useMemo(() => {
+    if (!openings.length) return null;
+    return [...openings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  }, [openings]);
+
+  const isRegisterOpen = useMemo(() => {
+    if (!lastOpening) return false; // Nunca se abrió
+    if (!lastClosure) return true; // Se abrió y nunca se cerró (o el cierre es mas viejo)
+    // Si la última apertura es mas reciente que el último cierre -> ABIERTO
+    return new Date(lastOpening.date) > new Date(lastClosure.date);
+  }, [lastOpening, lastClosure]);
+
 
   const handleToggleAdmin = () => {
     if (isAdmin) { setIsAdmin(false); } 
@@ -79,25 +98,18 @@ function App() {
     alert('Configuración guardada.');
   };
 
-  const lastClosureDate = React.useMemo(() => {
-    if (closures.length === 0) return null;
-    const sorted = [...closures].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return new Date(sorted[0].date);
-  }, [closures]);
-
   const renderContent = () => {
     if (isLoading) return <div className="flex items-center justify-center h-full text-brand-500 animate-pulse font-bold text-xl">Conectando con TecnoStore Cloud...</div>;
 
     switch (activeTab) {
       case 'dashboard': return <Dashboard sales={sales} products={products} />;
-      case 'pos': return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
+      case 'pos': return <POS products={products} settings={settings} onCheckout={handleCheckout} isRegisterOpen={isRegisterOpen} />;
       case 'inventory': return <Inventory products={products} isAdmin={isAdmin} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
       case 'expenses': return <Expenses expenses={expenses} isAdmin={isAdmin} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
       case 'history': return <SalesHistory sales={sales} isAdmin={isAdmin} settings={settings} onDeleteSale={handleDeleteSale} />;
-      // Actualizado para pasar Openings y HandleOpen
       case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} openings={openings} settings={settings} isAdmin={isAdmin} onOpenRegister={handleOpenRegister} onCloseRegister={handleCloseRegister} onDeleteClosure={handleDeleteClosure} />;
       case 'settings': return <Settings settings={settings} isAdmin={isAdmin} onSave={handleSaveSettings} />;
-      default: return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
+      default: return <POS products={products} settings={settings} onCheckout={handleCheckout} isRegisterOpen={isRegisterOpen} />;
     }
   };
 
