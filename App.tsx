@@ -7,7 +7,7 @@ import { SalesHistory } from './components/SalesHistory';
 import { CashRegister } from './components/CashRegister';
 import { Expenses } from './components/Expenses';
 import { Settings } from './components/Settings';
-import { Product, Sale, CashClosure, Expense, CompanySettings } from './types';
+import { Product, Sale, CashClosure, Expense, CompanySettings, CashOpening } from './types';
 import { StorageService } from './services/storageService';
 
 const DEFAULT_SETTINGS: CompanySettings = {
@@ -15,7 +15,7 @@ const DEFAULT_SETTINGS: CompanySettings = {
   address: 'Dirección del Local',
   phone: 'Teléfono',
   footerMessage: '¡Gracias por su compra!',
-  adminPin: '1234' // PIN por defecto
+  adminPin: '1234'
 };
 
 function App() {
@@ -24,44 +24,30 @@ function App() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [closures, setClosures] = useState<CashClosure[]>([]);
+  const [openings, setOpenings] = useState<CashOpening[]>([]); // Nuevo
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   
-  // ESTADO DE ADMINISTRADOR
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubSettings = StorageService.subscribeToSettings((data) => {
-      if (data) setSettings(data);
-    });
-
-    const unsubProducts = StorageService.subscribeToProducts((data) => {
-      setProducts(data);
-      setIsLoading(false);
-    });
+    const unsubSettings = StorageService.subscribeToSettings((data) => { if (data) setSettings(data); });
+    const unsubProducts = StorageService.subscribeToProducts((data) => { setProducts(data); setIsLoading(false); });
     const unsubSales = StorageService.subscribeToSales((data) => setSales(data));
     const unsubExpenses = StorageService.subscribeToExpenses((data) => setExpenses(data));
     const unsubClosures = StorageService.subscribeToClosures((data) => setClosures(data));
+    const unsubOpenings = StorageService.subscribeToOpenings((data) => setOpenings(data)); // Nuevo
 
     return () => {
-      unsubSettings();
-      unsubProducts();
-      unsubSales();
-      unsubExpenses();
-      unsubClosures();
+      unsubSettings(); unsubProducts(); unsubSales(); unsubExpenses(); unsubClosures(); unsubOpenings();
     };
   }, []);
 
   const handleToggleAdmin = () => {
-    if (isAdmin) {
-      setIsAdmin(false); // Cerrar sesión admin
-    } else {
+    if (isAdmin) { setIsAdmin(false); } 
+    else {
       const pin = prompt('Ingrese PIN de Administrador:');
-      if (pin === (settings.adminPin || '1234')) {
-        setIsAdmin(true);
-      } else {
-        alert('PIN Incorrecto');
-      }
+      if (pin === (settings.adminPin || '1234')) { setIsAdmin(true); } else { alert('PIN Incorrecto'); }
     }
   };
 
@@ -74,25 +60,18 @@ function App() {
     const updates = newSale.items.map(async (item) => {
       const original = products.find(p => p.id === item.id);
       if (original) {
-        await StorageService.updateProduct({ 
-          ...original, 
-          stock: Math.max(0, original.stock - item.quantity) 
-        });
+        await StorageService.updateProduct({ ...original, stock: Math.max(0, original.stock - item.quantity) });
       }
     });
     await Promise.all(updates);
   };
   
   const handleDeleteSale = async (id: string) => await StorageService.deleteSale(id);
-
   const handleAddExpense = async (newExpense: Expense) => await StorageService.addExpense(newExpense);
   const handleDeleteExpense = async (id: string) => await StorageService.deleteExpense(id);
   
-  const handleCloseRegister = async (closure: CashClosure) => {
-    await StorageService.addClosure(closure);
-    alert('¡Caja cerrada y guardada en la nube!');
-  };
-  
+  const handleOpenRegister = async (opening: CashOpening) => await StorageService.addOpening(opening);
+  const handleCloseRegister = async (closure: CashClosure) => await StorageService.addClosure(closure);
   const handleDeleteClosure = async (id: string) => await StorageService.deleteClosure(id);
 
   const handleSaveSettings = async (newSettings: CompanySettings) => {
@@ -115,7 +94,8 @@ function App() {
       case 'inventory': return <Inventory products={products} isAdmin={isAdmin} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
       case 'expenses': return <Expenses expenses={expenses} isAdmin={isAdmin} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
       case 'history': return <SalesHistory sales={sales} isAdmin={isAdmin} settings={settings} onDeleteSale={handleDeleteSale} />;
-      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} settings={settings} isAdmin={isAdmin} onCloseRegister={handleCloseRegister} onDeleteClosure={handleDeleteClosure} lastClosureDate={lastClosureDate} />;
+      // Actualizado para pasar Openings y HandleOpen
+      case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} openings={openings} settings={settings} isAdmin={isAdmin} onOpenRegister={handleOpenRegister} onCloseRegister={handleCloseRegister} onDeleteClosure={handleDeleteClosure} />;
       case 'settings': return <Settings settings={settings} isAdmin={isAdmin} onSave={handleSaveSettings} />;
       default: return <POS products={products} settings={settings} onCheckout={handleCheckout} />;
     }

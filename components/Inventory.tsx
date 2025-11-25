@@ -88,7 +88,6 @@ export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddPr
     setIsSaving(true);
     try {
       const idsToDelete = Array.from(selectedIds);
-      // Execute sequentially or in parallel depending on backend limits. Here parallel is fine for small batches.
       await Promise.all(idsToDelete.map(id => onDeleteProduct(id)));
       setSelectedIds(new Set());
       alert('Productos eliminados.');
@@ -99,7 +98,6 @@ export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddPr
     }
   };
 
-  // Previous Handlers
   const handleSave = async () => {
     if (!productForm.name || !productForm.price) return;
     setIsSaving(true);

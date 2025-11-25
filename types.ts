@@ -43,12 +43,21 @@ export interface Expense {
   paymentMethod: PaymentMethod;
 }
 
+// Nueva interfaz para Apertura
+export interface CashOpening {
+  id: string;
+  date: string;
+  amount: number;
+  notes?: string;
+}
+
 export interface CashClosure {
   id: string;
   date: string;
+  initialAmount: number; // Nuevo: Con cuánto se abrió
   totalSales: number;
   totalExpenses: number;
-  totalCash: number; // Net Cash (Sales - Expenses)
+  totalCash: number; // Net Cash (Initial + SalesCash - ExpensesCash)
   totalDigital: number; 
   transactionCount: number;
   notes?: string;

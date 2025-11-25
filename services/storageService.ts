@@ -10,13 +10,14 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, isFirebaseEnabled } from '../firebaseConfig';
-import { Product, Sale, CashClosure, Expense, CompanySettings } from '../types';
+import { Product, Sale, CashClosure, Expense, CompanySettings, CashOpening } from '../types';
 
 const COLS = {
   PRODUCTS: 'products',
   SALES: 'sales',
   EXPENSES: 'expenses',
   CLOSURES: 'closures',
+  OPENINGS: 'openings', // Nueva colección
   SETTINGS: 'settings'
 };
 
@@ -86,6 +87,7 @@ export const StorageService = {
       backupData.sales = (await getDocs(collection(db, COLS.SALES))).docs.map(d => d.data());
       backupData.expenses = (await getDocs(collection(db, COLS.EXPENSES))).docs.map(d => d.data());
       backupData.closures = (await getDocs(collection(db, COLS.CLOSURES))).docs.map(d => d.data());
+      backupData.openings = (await getDocs(collection(db, COLS.OPENINGS))).docs.map(d => d.data());
       
       // Settings
       const settingsSnap = await getDoc(doc(db, COLS.SETTINGS, 'company'));
@@ -122,16 +124,6 @@ export const StorageService = {
       }, (error) => handleSubscriptionError(error, 'Configuración'));
     }
     return () => {};
-  },
-
-  getSettings: async (): Promise<CompanySettings | null> => {
-    if (!isFirebaseEnabled || !db) return null;
-    try {
-      const docRef = doc(db, COLS.SETTINGS, 'company');
-      const snap = await getDoc(docRef);
-      if (snap.exists()) return snap.data() as CompanySettings;
-      return null;
-    } catch (e) { return null; }
   },
 
   saveSettings: async (settings: CompanySettings) => {
@@ -255,5 +247,32 @@ export const StorageService = {
     try {
       await deleteDoc(doc(db, COLS.CLOSURES, id));
     } catch (e) { handleError(e, 'Eliminar Cierre'); }
-  }
+  },
+
+  // --- APERTURAS ---
+  subscribeToOpenings: (callback: (openings: CashOpening[]) => void) => {
+    if (isFirebaseEnabled && db) {
+      const q = query(collection(db, COLS.OPENINGS));
+      return onSnapshot(q, (snapshot) => {
+        const openings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CashOpening));
+        callback(openings);
+      }, (error) => handleSubscriptionError(error, 'Aperturas'));
+    }
+    return () => {};
+  },
+
+  addOpening: async (opening: CashOpening) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = opening;
+      await setDoc(doc(db, COLS.OPENINGS, id), cleanData(data));
+    } catch (e) { handleError(e, 'Abrir Caja'); }
+  },
+
+  deleteOpening: async (id: string) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      await deleteDoc(doc(db, COLS.OPENINGS, id));
+    } catch (e) { handleError(e, 'Eliminar Apertura'); }
+  },
 };
