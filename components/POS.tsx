@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { Product, CartItem, PaymentMethod, Sale, CompanySettings } from '../types';
-import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer } from 'lucide-react';
+import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer, AlertTriangle, Lock } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface POSProps {
   products: Product[];
   settings: CompanySettings;
   onCheckout: (sale: Sale) => void;
+  isRegisterOpen: boolean; // Nuevo prop para validar caja
 }
 
-export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
+export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegisterOpen }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -42,7 +43,12 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
   };
 
   const handleCheckout = () => {
+    if (!isRegisterOpen) {
+      alert('⚠️ CAJA CERRADA: Debes realizar la apertura de caja antes de vender.');
+      return;
+    }
     if (!cart.length) return;
+    
     const newSale: Sale = {
       id: uuidv4(),
       date: new Date().toISOString(),
@@ -122,7 +128,13 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)]">
       <div className="flex-1 flex flex-col gap-4 h-full overflow-hidden">
+        {/* Header Search & Status */}
         <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+          {!isRegisterOpen && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg flex items-center gap-2 font-bold text-sm">
+              <Lock size={16}/> CAJA CERRADA - Modo Consulta (No se pueden registrar ventas)
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-3 text-gray-400" size={20}/>
             <input className="w-full pl-10 p-2 bg-gray-50 rounded-lg" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
@@ -134,6 +146,7 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
           </div>
         </div>
         
+        {/* Products Grid */}
         <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-4 content-start pr-2">
           {filtered.map(p => (
             <div key={p.id} onClick={() => p.stock > 0 && addToCart(p)} className={`bg-white p-3 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition border border-gray-100 ${p.stock === 0 ? 'opacity-50' : ''}`}>
@@ -148,6 +161,7 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
         </div>
       </div>
 
+      {/* Cart Sidebar */}
       <div className="w-full lg:w-96 bg-white rounded-xl shadow-xl flex flex-col border">
         <div className="p-4 border-b font-bold flex justify-between items-center">
           <div className="flex gap-2 items-center"><ShoppingCart className="text-brand-500"/> Carrito</div>
@@ -188,7 +202,14 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout }) => {
           <div className="pt-2 border-t">
             <div className="flex justify-between text-xl font-bold"><span>Total</span><span>${totals.total.toLocaleString()}</span></div>
           </div>
-          <button onClick={handleCheckout} disabled={!cart.length} className="w-full py-3 bg-brand-600 text-white rounded-lg font-bold shadow hover:bg-brand-700 disabled:opacity-50">COBRAR</button>
+          
+          <button 
+            onClick={handleCheckout} 
+            disabled={!cart.length || !isRegisterOpen} 
+            className={`w-full py-3 rounded-lg font-bold shadow transition flex items-center justify-center gap-2 ${!isRegisterOpen ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
+          >
+            {!isRegisterOpen ? <><Lock size={18}/> CAJA CERRADA</> : 'COBRAR'}
+          </button>
         </div>
       </div>
     </div>
