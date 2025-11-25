@@ -15,44 +15,14 @@ export const SalesHistory: React.FC<HistoryProps> = ({ sales, isAdmin, settings,
     if (!win) return;
     
     win.document.write(`
-      <html>
-        <head>
-          <style>
-            body { font-family: monospace; padding: 20px; text-align: center; }
-            .header { margin-bottom: 20px; }
-            .item { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
-            .total { font-weight: bold; font-size: 16px; margin-top: 10px; border-top: 1px dashed black; padding-top: 10px; }
-            .footer { margin-top: 20px; font-size: 10px; }
-            hr { border-top: 1px dashed black; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h3>${settings?.name || 'TecnoStore'}</h3>
-            <p>${settings?.address || ''}<br/>${settings?.phone || ''}</p>
-            <p><strong>REIMPRESIÓN</strong></p>
-          </div>
-          <hr/>
-          <div style="text-align:left; font-size:12px; margin: 10px 0;">
-            Fecha: ${new Date(sale.date).toLocaleString()}<br/>
-            Ticket: #${sale.id.slice(0, 8)}<br/>
-            Pago: ${sale.paymentMethod}
-          </div>
-          <hr/>
-          <div class="items">
-            ${sale.items.map(i => `
-              <div class="item">
-                <span>${i.quantity} x ${i.name}</span>
-                <span>$${(i.price * i.quantity).toLocaleString()}</span>
-              </div>
-            `).join('')}
-          </div>
-          <hr/>
-          <div class="total">
-            TOTAL: $${sale.total.toLocaleString()}
-          </div>
-        </body>
-      </html>
+      <html><head><style>
+        body{font-family:monospace;padding:20px;text-align:center}.header{margin-bottom:20px}.item{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}.total{font-weight:bold;font-size:16px;margin-top:10px;border-top:1px dashed black;padding-top:10px}.footer{margin-top:20px;font-size:10px}hr{border-top:1px dashed black}
+      </style></head><body>
+        <div class="header"><h3>${settings?.name||'TecnoStore'}</h3><p>${settings?.address||''}<br/>${settings?.phone||''}</p><p><strong>REIMPRESIÓN</strong></p></div><hr/>
+        <div style="text-align:left;font-size:12px;margin:10px 0;">Fecha: ${new Date(sale.date).toLocaleString()}<br/>Ticket: #${sale.id.slice(0, 8)}<br/>Pago: ${sale.paymentMethod}</div><hr/>
+        <div class="items">${sale.items.map(i => `<div class="item"><span>${i.quantity} x ${i.name}</span><span>$${(i.price * i.quantity).toLocaleString()}</span></div>`).join('')}</div><hr/>
+        <div class="total">TOTAL: $${sale.total.toLocaleString()}</div>
+      </body></html>
     `);
     win.document.close();
     win.focus();
@@ -80,14 +50,8 @@ export const SalesHistory: React.FC<HistoryProps> = ({ sales, isAdmin, settings,
                 <td className="p-4"><span className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-xs">{s.paymentMethod}</span></td>
                 <td className="p-4 font-bold">${s.total}</td>
                 <td className="p-4 text-right flex justify-end gap-2">
-                  <button onClick={() => printTicket(s)} className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg">
-                    <Printer size={16}/>
-                  </button>
-                  {isAdmin && (
-                    <button onClick={() => handleDelete(s.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                      <Trash2 size={16}/>
-                    </button>
-                  )}
+                  <button onClick={() => printTicket(s)} className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg"><Printer size={16}/></button>
+                  {isAdmin && <button onClick={() => handleDelete(s.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>}
                 </td>
               </tr>
             ))}

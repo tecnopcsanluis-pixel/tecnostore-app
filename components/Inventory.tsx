@@ -1,12 +1,12 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Product, Sale } from '../types';
-import { Search, Plus, Upload, Trash2, Edit2, X, Image as ImageIcon, Save, Loader2, ArrowUpDown, CheckSquare, Square, AlertTriangle, Layers, PackageX, TrendingUp } from 'lucide-react';
+import { Search, Plus, Upload, Trash2, Edit2, X, Image as ImageIcon, Save, Loader2, ArrowUpDown, CheckSquare, Square, TrendingUp, Layers, CheckCircle, AlertTriangle, PackageX } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface InventoryProps {
   products: Product[];
-  sales: Sale[]; // Nuevo: Necesario para calcular popularidad
+  sales: Sale[];
   isAdmin: boolean;
   onAddProduct: (product: Product) => void | Promise<void>;
   onUpdateProduct: (product: Product) => void | Promise<void>;
@@ -19,7 +19,7 @@ type ViewMode = 'all' | 'in_stock' | 'out_of_stock' | 'critical';
 
 export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, onAddProduct, onUpdateProduct, onDeleteProduct }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('all'); // Nuevo: Filtros
+  const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -35,15 +35,14 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Lógica Avanzada de Filtros y Ordenamiento
+  // Filter & Sort Logic
   const processedProducts = useMemo(() => {
-    // 1. Filtrar por Búsqueda
     let result = products.filter(p => 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       p.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // 2. Filtrar por Pestaña (Modo)
+    // 2. Filtrar por Pestaña
     if (viewMode === 'in_stock') {
       result = result.filter(p => p.stock > 0);
     } else if (viewMode === 'out_of_stock') {
@@ -59,35 +58,33 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
       }));
 
       // Sobreescribir el ordenamiento normal para este modo
-      // Ordenar por: Más vendidos primero
       result.sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0));
       return result; 
     }
 
-    // 3. Ordenamiento (Solo si no estamos en modo Crítico, que tiene su propio orden)
-    if (viewMode !== 'critical') {
-      result.sort((a, b) => {
-        const aValue = a[sortField];
-        const bValue = b[sortField];
-        
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return sortDirection === 'asc' 
-            ? aValue.localeCompare(bValue) 
-            : bValue.localeCompare(aValue);
-        } else {
-          return sortDirection === 'asc' 
-            ? (Number(aValue) - Number(bValue)) 
-            : (Number(bValue) - Number(aValue));
-        }
-      });
-    }
+    // 3. Ordenamiento (Solo si no estamos en modo Crítico)
+    // Nota: Si viewMode fuera 'critical', ya hubiéramos retornado arriba.
+    result.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue) 
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' 
+          ? (Number(aValue) - Number(bValue)) 
+          : (Number(bValue) - Number(aValue));
+      }
+    });
 
     return result;
   }, [products, searchTerm, sortField, sortDirection, viewMode, sales]);
 
   // Handlers
   const handleSort = (field: SortField) => {
-    if (viewMode === 'critical') return; // En modo crítico el orden es automático por popularidad
+    if (viewMode === 'critical') return; // En modo crítico el orden es fijo
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -206,8 +203,6 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
 
   return (
     <div className="space-y-6">
-      
-      {/* HEADER Y PESTAÑAS DE FILTRO */}
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
@@ -219,30 +214,10 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
 
         {/* TABS DE FILTRADO */}
         <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => setViewMode('all')} 
-            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${viewMode === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}
-          >
-            <Layers size={16}/> Todos
-          </button>
-          <button 
-            onClick={() => setViewMode('in_stock')} 
-            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${viewMode === 'in_stock' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}
-          >
-            <CheckSquare size={16}/> Con Stock
-          </button>
-          <button 
-            onClick={() => setViewMode('out_of_stock')} 
-            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${viewMode === 'out_of_stock' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}
-          >
-            <PackageX size={16}/> Sin Stock
-          </button>
-          <button 
-            onClick={() => setViewMode('critical')} 
-            className={`ml-auto px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition animate-pulse-slow ${viewMode === 'critical' ? 'bg-orange-500 text-white ring-2 ring-orange-300' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100'}`}
-          >
-            <TrendingUp size={16}/> 🚨 Reponer (Top Ventas)
-          </button>
+          <button onClick={() => setViewMode('all')} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${viewMode === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}><Layers size={16}/> Todos</button>
+          <button onClick={() => setViewMode('in_stock')} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${viewMode === 'in_stock' ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}><CheckSquare size={16}/> Con Stock</button>
+          <button onClick={() => setViewMode('out_of_stock')} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${viewMode === 'out_of_stock' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}><PackageX size={16}/> Sin Stock</button>
+          <button onClick={() => setViewMode('critical')} className={`ml-auto px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition animate-pulse-slow ${viewMode === 'critical' ? 'bg-orange-500 text-white ring-2 ring-orange-300' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100'}`}><TrendingUp size={16}/> 🚨 Reponer (Top Ventas)</button>
         </div>
       </div>
 
@@ -254,12 +229,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
       {selectedIds.size > 0 && isAdmin && (
         <div className="bg-red-50 p-2 rounded-lg flex items-center justify-between border border-red-100">
            <span className="text-sm text-red-700 font-medium ml-2">{selectedIds.size} productos seleccionados</span>
-           <button 
-              onClick={handleBulkDelete} 
-              className="text-sm bg-red-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-2 hover:bg-red-700"
-            >
-              <Trash2 size={16}/> Eliminar Selección
-            </button>
+           <button onClick={handleBulkDelete} className="text-sm bg-red-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-2 hover:bg-red-700"><Trash2 size={16}/> Eliminar Selección</button>
         </div>
       )}
 
@@ -276,13 +246,13 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
               </th>
               <th className="p-4">Img</th>
               <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('name')}>
-                <div className="flex items-center gap-1">Nombre <ArrowUpDown size={14} className={`text-gray-400 ${sortField === 'name' ? 'text-brand-500' : ''}`}/></div>
+                <div className="flex items-center gap-1">Nombre <ArrowUpDown size={14} className={sortField === 'name' ? 'text-brand-500' : 'text-gray-400'}/></div>
               </th>
               <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('category')}>
-                <div className="flex items-center gap-1">Categoría <ArrowUpDown size={14} className={`text-gray-400 ${sortField === 'category' ? 'text-brand-500' : ''}`}/></div>
+                <div className="flex items-center gap-1">Categoría <ArrowUpDown size={14} className={sortField === 'category' ? 'text-brand-500' : 'text-gray-400'}/></div>
               </th>
               <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('price')}>
-                 <div className="flex items-center gap-1">Precio <ArrowUpDown size={14} className={`text-gray-400 ${sortField === 'price' ? 'text-brand-500' : ''}`}/></div>
+                 <div className="flex items-center gap-1">Precio <ArrowUpDown size={14} className={sortField === 'price' ? 'text-brand-500' : 'text-gray-400'}/></div>
               </th>
               <th className="p-4">Stock</th>
               <th className="p-4 text-right">Acción</th>
@@ -290,9 +260,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
           </thead>
           <tbody>
             {processedProducts.length === 0 ? (
-               <tr><td colSpan={7} className="text-center py-12 text-gray-400">
-                  {viewMode === 'critical' ? '¡Todo bien! No hay productos críticos para reponer.' : 'No se encontraron productos.'}
-               </td></tr>
+               <tr><td colSpan={7} className="text-center py-12 text-gray-400">No hay productos.</td></tr>
             ) : (
               processedProducts.map(p => (
                 <tr key={p.id} className={`hover:bg-gray-50 ${selectedIds.has(p.id) ? 'bg-blue-50' : ''}`}>
@@ -312,16 +280,10 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
                   </td>
                   <td className="p-4 text-sm text-gray-600">{p.category}</td>
                   <td className="p-4 font-bold text-brand-600">${p.price}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                      {p.stock} u.
-                    </span>
-                  </td>
+                  <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{p.stock} u.</span></td>
                   <td className="p-4 text-right flex justify-end gap-2">
                     <button onClick={() => { setEditingId(p.id); setProductForm(p); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
-                    {isAdmin && (
-                      <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
-                    )}
+                    {isAdmin && <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>}
                   </td>
                 </tr>
               ))
