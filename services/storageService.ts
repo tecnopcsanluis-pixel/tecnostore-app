@@ -6,7 +6,8 @@ import {
   onSnapshot, 
   query, 
   setDoc,
-  getDoc
+  getDoc,
+  getDocs
 } from 'firebase/firestore';
 import { db, isFirebaseEnabled } from '../firebaseConfig';
 import { Product, Sale, CashClosure, Expense, CompanySettings } from '../types';
@@ -58,7 +59,7 @@ const handleSubscriptionError = (error: any, context: string) => {
 
 export const StorageService = {
   
-  // --- UTILS DE DIAGNÓSTICO ---
+  // --- UTILS DE DIAGNÓSTICO Y BACKUP ---
   testConnection: async () => {
     if (!isFirebaseEnabled || !db) throw new Error("Firebase no inicializado");
     try {
@@ -72,6 +73,39 @@ export const StorageService = {
     } catch (e: any) {
       handleError(e, 'Prueba de Conexión');
       throw e;
+    }
+  },
+
+  createBackup: async () => {
+    if (!isFirebaseEnabled || !db) throw new Error("Sin conexión a DB");
+    try {
+      const backupData: any = { timestamp: new Date().toISOString() };
+      
+      // Fetch all collections
+      backupData.products = (await getDocs(collection(db, COLS.PRODUCTS))).docs.map(d => d.data());
+      backupData.sales = (await getDocs(collection(db, COLS.SALES))).docs.map(d => d.data());
+      backupData.expenses = (await getDocs(collection(db, COLS.EXPENSES))).docs.map(d => d.data());
+      backupData.closures = (await getDocs(collection(db, COLS.CLOSURES))).docs.map(d => d.data());
+      
+      // Settings
+      const settingsSnap = await getDoc(doc(db, COLS.SETTINGS, 'company'));
+      if (settingsSnap.exists()) backupData.settings = settingsSnap.data();
+
+      // Create Download
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `TecnoStore_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      return true;
+    } catch (error: any) {
+      console.error("Backup failed", error);
+      throw error;
     }
   },
 

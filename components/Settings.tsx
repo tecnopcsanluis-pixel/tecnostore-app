@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CompanySettings } from '../types';
-import { Save, Store, Activity, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { Save, Store, Activity, CheckCircle, AlertCircle, Lock, Download, Database } from 'lucide-react';
 import { StorageService } from '../services/storageService';
 
 interface SettingsProps {
@@ -13,6 +13,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, isAdmin, onSave })
   const [form, setForm] = useState<CompanySettings>(settings);
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [backupLoading, setBackupLoading] = useState(false);
 
   useEffect(() => {
     if (settings) setForm(settings);
@@ -35,6 +36,18 @@ export const Settings: React.FC<SettingsProps> = ({ settings, isAdmin, onSave })
     }
   };
 
+  const handleBackup = async () => {
+    setBackupLoading(true);
+    try {
+      await StorageService.createBackup();
+      alert('Copia de seguridad descargada exitosamente.');
+    } catch (e: any) {
+      alert('Error al crear copia: ' + e.message);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-500">
@@ -46,7 +59,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, isAdmin, onSave })
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto pb-10">
       <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
         <Store className="text-brand-500" /> Configuración del Negocio
       </h1>
@@ -78,6 +91,23 @@ export const Settings: React.FC<SettingsProps> = ({ settings, isAdmin, onSave })
             <p className="mt-1">{errorMsg}</p>
           </div>
         )}
+      </div>
+
+      {/* DATA MANAGEMENT */}
+      <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+        <h3 className="font-bold text-emerald-800 mb-2 flex items-center gap-2">
+          <Database size={18}/> Gestión de Datos
+        </h3>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-emerald-700">Descarga una copia de seguridad de todo el sistema (Productos, Ventas, Cierres).</p>
+          <button 
+            onClick={handleBackup} 
+            disabled={backupLoading}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <Download size={16}/> {backupLoading ? 'Generando...' : 'Descargar Copia'}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-sm space-y-4 border border-gray-100">

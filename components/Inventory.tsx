@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Product } from '../types';
-import { Search, Plus, Upload, Trash2, Edit2, X, Image as ImageIcon, Save, Loader2 } from 'lucide-react';
+import { Search, Plus, Upload, Trash2, Edit2, X, Image as ImageIcon, Save, Loader2, ArrowUpDown, CheckSquare, Square } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,6 +11,9 @@ export interface InventoryProps {
   onUpdateProduct: (product: Product) => void | Promise<void>;
   onDeleteProduct: (id: string) => void | Promise<void>;
 }
+
+type SortField = 'name' | 'category' | 'price' | 'stock';
+type SortDirection = 'asc' | 'desc';
 
 export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddProduct, onUpdateProduct, onDeleteProduct }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,11 +27,79 @@ export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddPr
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const filtered = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Sorting & Selection States
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  // Filter & Sort Logic
+  const processedProducts = useMemo(() => {
+    let result = products.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    result.sort((a, b) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue) 
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' 
+          ? (Number(aValue) - Number(bValue)) 
+          : (Number(bValue) - Number(aValue));
+      }
+    });
+
+    return result;
+  }, [products, searchTerm, sortField, sortDirection]);
+
+  // Handlers for Sort
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Handlers for Selection
+  const toggleSelectAll = () => {
+    if (selectedIds.size === processedProducts.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(processedProducts.map(p => p.id)));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`¿Estás seguro de ELIMINAR ${selectedIds.size} productos seleccionados? Esta acción no se puede deshacer.`)) return;
+    setIsSaving(true);
+    try {
+      const idsToDelete = Array.from(selectedIds);
+      // Execute sequentially or in parallel depending on backend limits. Here parallel is fine for small batches.
+      await Promise.all(idsToDelete.map(id => onDeleteProduct(id)));
+      setSelectedIds(new Set());
+      alert('Productos eliminados.');
+    } catch (error) {
+      alert('Error al eliminar algunos productos.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Previous Handlers
   const handleSave = async () => {
     if (!productForm.name || !productForm.price) return;
     setIsSaving(true);
@@ -109,8 +180,18 @@ export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddPr
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
+      <div className="flex justify-between items-center flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
+          {selectedIds.size > 0 && isAdmin && (
+            <button 
+              onClick={handleBulkDelete} 
+              className="mt-2 text-sm bg-red-100 text-red-700 px-3 py-1 rounded-lg font-bold flex items-center gap-2 hover:bg-red-200"
+            >
+              <Trash2 size={16}/> Borrar {selectedIds.size} seleccionados
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           {isAdmin && <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center hover:bg-emerald-200 transition"><Upload size={18}/> Importar</button>}
           <button onClick={() => { setEditingId(null); setProductForm({}); setShowModal(true); }} className="px-4 py-2 bg-brand-600 text-white rounded-lg flex gap-2 items-center hover:bg-brand-700 transition"><Plus size={18}/> Nuevo</button>
@@ -124,22 +205,42 @@ export const Inventory: React.FC<InventoryProps> = ({ products, isAdmin, onAddPr
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full text-left">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 text-gray-600 text-sm">
             <tr>
+              <th className="p-4 w-10">
+                {isAdmin && (
+                  <button onClick={toggleSelectAll} className="text-gray-500 hover:text-brand-600">
+                    {selectedIds.size > 0 && selectedIds.size === processedProducts.length ? <CheckSquare size={20}/> : <Square size={20}/>}
+                  </button>
+                )}
+              </th>
               <th className="p-4">Img</th>
-              <th className="p-4">Nombre</th>
-              <th className="p-4">Cat</th>
-              <th className="p-4">Precio</th>
+              <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('name')}>
+                <div className="flex items-center gap-1">Nombre <ArrowUpDown size={14} className="text-gray-400"/></div>
+              </th>
+              <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('category')}>
+                <div className="flex items-center gap-1">Categoría <ArrowUpDown size={14} className="text-gray-400"/></div>
+              </th>
+              <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('price')}>
+                 <div className="flex items-center gap-1">Precio <ArrowUpDown size={14} className="text-gray-400"/></div>
+              </th>
               <th className="p-4">Stock</th>
               <th className="p-4 text-right">Acción</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-               <tr><td colSpan={6} className="text-center py-8 text-gray-400">No hay productos.</td></tr>
+            {processedProducts.length === 0 ? (
+               <tr><td colSpan={7} className="text-center py-8 text-gray-400">No hay productos.</td></tr>
             ) : (
-              filtered.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
+              processedProducts.map(p => (
+                <tr key={p.id} className={`hover:bg-gray-50 ${selectedIds.has(p.id) ? 'bg-blue-50' : ''}`}>
+                  <td className="p-4">
+                    {isAdmin && (
+                      <button onClick={() => toggleSelectOne(p.id)} className={`text-gray-400 ${selectedIds.has(p.id) ? 'text-brand-600' : ''}`}>
+                         {selectedIds.has(p.id) ? <CheckSquare size={20}/> : <Square size={20}/>}
+                      </button>
+                    )}
+                  </td>
                   <td className="p-4">
                     {p.image ? <img src={p.image} className="w-10 h-10 rounded object-cover shadow-sm"/> : <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center"><ImageIcon size={16} className="text-gray-400"/></div>}
                   </td>
