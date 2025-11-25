@@ -104,7 +104,8 @@ function App() {
     switch (activeTab) {
       case 'dashboard': return <Dashboard sales={sales} products={products} />;
       case 'pos': return <POS products={products} settings={settings} onCheckout={handleCheckout} isRegisterOpen={isRegisterOpen} />;
-      case 'inventory': return <Inventory products={products} isAdmin={isAdmin} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
+      // FIX: Pasamos 'sales' al Inventario para el cálculo de Top Ventas
+      case 'inventory': return <Inventory products={products} sales={sales} isAdmin={isAdmin} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />;
       case 'expenses': return <Expenses expenses={expenses} isAdmin={isAdmin} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} />;
       case 'history': return <SalesHistory sales={sales} isAdmin={isAdmin} settings={settings} onDeleteSale={handleDeleteSale} />;
       case 'cashier': return <CashRegister sales={sales} expenses={expenses} closures={closures} openings={openings} settings={settings} isAdmin={isAdmin} onOpenRegister={handleOpenRegister} onCloseRegister={handleCloseRegister} onDeleteClosure={handleDeleteClosure} />;
