@@ -70,6 +70,7 @@ export interface CompanySettings {
   footerMessage: string;
   logoUrl?: string;
   adminPin?: string; // Nuevo PIN de seguridad
+  whatsappNumber?: string; // Nuevo para envío de caja
 }
 
 export interface SalesSummary {
