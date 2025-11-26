@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CompanySettings } from '../types';
-import { Save, Store, Activity, CheckCircle, AlertCircle, Lock, Download, Database } from 'lucide-react';
+import { Save, Store, Activity, CheckCircle, AlertCircle, Lock, Download, Database, Phone } from 'lucide-react';
 import { StorageService } from '../services/storageService';
 
 interface SettingsProps {
@@ -121,9 +121,16 @@ export const Settings: React.FC<SettingsProps> = ({ settings, isAdmin, onSave })
           <input className="w-full p-3 border rounded-lg" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Ej: Av. Principal 123" />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono / WhatsApp</label>
-          <input className="w-full p-3 border rounded-lg" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="Ej: +54 9 11 1234-5678" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono Visible</label>
+            <input className="w-full p-3 border rounded-lg" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="Ej: +54 9 11..." />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-green-700 mb-1 flex items-center gap-1"><Phone size={14}/> WhatsApp para Cierre</label>
+            <input className="w-full p-3 border rounded-lg border-green-200 bg-green-50" value={form.whatsappNumber || ''} onChange={e => setForm({...form, whatsappNumber: e.target.value})} placeholder="Ej: 5492664..." />
+            <p className="text-xs text-green-600 mt-1">Número internacional sin + (Ej: 54911...)</p>
+          </div>
         </div>
 
         <div>
