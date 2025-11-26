@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Sale, CompanySettings } from '../types';
-import { Clock, Printer, Trash2 } from 'lucide-react';
+import { Clock, Printer, Trash2, ArrowUpDown } from 'lucide-react';
 
 interface HistoryProps {
   sales: Sale[];
@@ -10,6 +10,21 @@ interface HistoryProps {
 }
 
 export const SalesHistory: React.FC<HistoryProps> = ({ sales, isAdmin, settings, onDeleteSale }) => {
+  const [sortOrder, setSortOrder] = useState<'date_desc' | 'date_asc' | 'amount_desc'>('date_desc');
+
+  const sortedSales = useMemo(() => {
+    const list = [...sales];
+    list.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (sortOrder === 'date_desc') return dateB - dateA;
+      if (sortOrder === 'date_asc') return dateA - dateB;
+      if (sortOrder === 'amount_desc') return b.total - a.total;
+      return 0;
+    });
+    return list;
+  }, [sales, sortOrder]);
+
   const printTicket = (sale: Sale) => {
     const win = window.open('', 'PRINT', 'height=600,width=400');
     if (!win) return;
@@ -38,12 +53,20 @@ export const SalesHistory: React.FC<HistoryProps> = ({ sales, isAdmin, settings,
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Historial</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Historial de Ventas</h1>
+        <div className="flex gap-2">
+          <button onClick={() => setSortOrder('date_desc')} className={`px-3 py-1 rounded text-xs font-bold ${sortOrder === 'date_desc' ? 'bg-brand-600 text-white' : 'bg-gray-200'}`}>Más Recientes</button>
+          <button onClick={() => setSortOrder('date_asc')} className={`px-3 py-1 rounded text-xs font-bold ${sortOrder === 'date_asc' ? 'bg-brand-600 text-white' : 'bg-gray-200'}`}>Más Antiguas</button>
+          <button onClick={() => setSortOrder('amount_desc')} className={`px-3 py-1 rounded text-xs font-bold ${sortOrder === 'amount_desc' ? 'bg-brand-600 text-white' : 'bg-gray-200'}`}>Mayor Monto</button>
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-left">
           <thead className="bg-gray-50"><tr><th className="p-4">Fecha</th><th className="p-4">Detalle</th><th className="p-4">Pago</th><th className="p-4">Total</th><th className="p-4"></th></tr></thead>
           <tbody>
-            {[...sales].reverse().map(s => (
+            {sortedSales.map(s => (
               <tr key={s.id} className="border-t hover:bg-gray-50">
                 <td className="p-4 text-sm flex items-center gap-2"><Clock size={14}/> {new Date(s.date).toLocaleString()}</td>
                 <td className="p-4 text-sm">{s.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}</td>
