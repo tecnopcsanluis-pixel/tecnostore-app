@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Product, CartItem, PaymentMethod, Sale, CompanySettings } from '../types';
-import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer, AlertTriangle, Lock } from 'lucide-react';
+import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer, AlertTriangle, Lock, Edit2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface POSProps {
@@ -40,6 +40,15 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
       if (exist) return prev.map(i => i.id === p.id ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { ...p, quantity: 1 }];
     });
+  };
+
+  const editItemPrice = (itemId: string) => {
+    const item = cart.find(i => i.id === itemId);
+    if (!item) return;
+    const newPrice = prompt('Nuevo precio para este producto:', item.price.toString());
+    if (newPrice !== null && !isNaN(Number(newPrice))) {
+      setCart(prev => prev.map(i => i.id === itemId ? { ...i, price: Number(newPrice) } : i));
+    }
   };
 
   const handleCheckout = () => {
@@ -136,7 +145,12 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
           {cart.map(i => (
             <div key={i.id} className="flex gap-3 items-center">
               <div className="font-bold w-6 text-center">{i.quantity}x</div>
-              <div className="flex-1 text-sm"><div className="line-clamp-1">{i.name}</div><div className="text-xs text-gray-500">${i.price}</div></div>
+              <div className="flex-1 text-sm"><div className="line-clamp-1">{i.name}</div>
+              <div className="text-xs text-gray-500 flex items-center gap-2">
+                ${i.price} 
+                <button onClick={() => editItemPrice(i.id)} className="text-blue-500 hover:bg-blue-50 rounded p-1"><Edit2 size={10}/></button>
+              </div>
+              </div>
               <div className="font-bold text-sm">${i.price * i.quantity}</div>
               <button onClick={() => setCart(c => c.filter(x => x.id !== i.id))} className="text-gray-400 hover:text-red-500"><Trash size={16}/></button>
             </div>
