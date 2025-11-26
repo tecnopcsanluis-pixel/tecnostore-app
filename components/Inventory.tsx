@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Product, Sale } from '../types';
-import { Search, Plus, Upload, Trash2, Edit2, X, Image as ImageIcon, Save, Loader2, ArrowUpDown, CheckSquare, Square, TrendingUp, Layers, CheckCircle, AlertTriangle, PackageX } from 'lucide-react';
+import { Search, Plus, Upload, Trash2, Edit2, X, Image as ImageIcon, Save, Loader2, ArrowUpDown, CheckSquare, Square, TrendingUp, Layers, PackageX, Lock } from 'lucide-react';
 import { GeminiService } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -48,22 +48,16 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
     } else if (viewMode === 'out_of_stock') {
       result = result.filter(p => p.stock === 0);
     } else if (viewMode === 'critical') {
-      // MODO CRITICO: Productos con stock bajo (<4) ordenados por ventas
       result = result.filter(p => p.stock < 4);
-      
-      // Calcular popularidad
       const salesCount: Record<string, number> = {};
       sales.forEach(s => s.items.forEach(i => {
         salesCount[i.id] = (salesCount[i.id] || 0) + i.quantity;
       }));
-
-      // Sobreescribir el ordenamiento normal para este modo
       result.sort((a, b) => (salesCount[b.id] || 0) - (salesCount[a.id] || 0));
       return result; 
     }
 
-    // 3. Ordenamiento (Solo si no estamos en modo Crítico)
-    // Nota: Si viewMode fuera 'critical', ya hubiéramos retornado arriba.
+    // 3. Ordenamiento
     result.sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
@@ -84,7 +78,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
 
   // Handlers
   const handleSort = (field: SortField) => {
-    if (viewMode === 'critical') return; // En modo crítico el orden es fijo
+    if (viewMode === 'critical') return; 
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -207,8 +201,16 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-800">Inventario</h1>
           <div className="flex gap-2">
-            {isAdmin && <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center hover:bg-emerald-200 transition"><Upload size={18}/> Importar</button>}
-            <button onClick={() => { setEditingId(null); setProductForm({}); setShowModal(true); }} className="px-4 py-2 bg-brand-600 text-white rounded-lg flex gap-2 items-center hover:bg-brand-700 transition"><Plus size={18}/> Nuevo</button>
+            {!isAdmin ? (
+                <div className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg text-gray-500 text-sm">
+                    <Lock size={16}/> Edición Bloqueada
+                </div>
+            ) : (
+                <>
+                    <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg flex gap-2 items-center hover:bg-emerald-200 transition"><Upload size={18}/> Importar</button>
+                    <button onClick={() => { setEditingId(null); setProductForm({}); setShowModal(true); }} className="px-4 py-2 bg-brand-600 text-white rounded-lg flex gap-2 items-center hover:bg-brand-700 transition"><Plus size={18}/> Nuevo</button>
+                </>
+            )}
           </div>
         </div>
 
@@ -282,8 +284,12 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
                   <td className="p-4 font-bold text-brand-600">${p.price}</td>
                   <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{p.stock} u.</span></td>
                   <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => { setEditingId(p.id); setProductForm(p); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
-                    {isAdmin && <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>}
+                    {isAdmin && (
+                        <>
+                            <button onClick={() => { setEditingId(p.id); setProductForm(p); setShowModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={16}/></button>
+                            <button onClick={() => { if(confirm('Eliminar?')) onDeleteProduct(p.id); }} className="p-2 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                        </>
+                    )}
                   </td>
                 </tr>
               ))
