@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Sale, CashClosure, PaymentMethod, Expense, CompanySettings, CashOpening } from '../types';
-import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock } from 'lucide-react';
+import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Send } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CashRegisterProps {
@@ -59,18 +59,32 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
 
   const stats = useMemo(() => {
     const initial = isRegisterOpen && lastOpening ? lastOpening.amount : 0;
+    
+    // Desglose detallado
     const salesCash = currentSales.filter(s => s.paymentMethod === PaymentMethod.CASH).reduce((a, s) => a + s.total, 0);
-    const salesDigital = currentSales.filter(s => s.paymentMethod !== PaymentMethod.CASH).reduce((a, s) => a + s.total, 0);
+    const salesDebit = currentSales.filter(s => s.paymentMethod === PaymentMethod.DEBIT).reduce((a, s) => a + s.total, 0);
+    const salesCredit = currentSales.filter(s => s.paymentMethod === PaymentMethod.CREDIT).reduce((a, s) => a + s.total, 0);
+    const salesTransfer = currentSales.filter(s => s.paymentMethod === PaymentMethod.TRANSFER).reduce((a, s) => a + s.total, 0);
+    const salesQR = currentSales.filter(s => s.paymentMethod === PaymentMethod.QR).reduce((a, s) => a + s.total, 0);
+    
+    const salesDigitalTotal = salesDebit + salesCredit + salesTransfer + salesQR;
+    
     const totalExpenses = currentExpenses.reduce((a, e) => a + e.amount, 0);
     const expensesCash = currentExpenses.filter(e => e.paymentMethod === PaymentMethod.CASH).reduce((a, e) => a + e.amount, 0);
+    
     const netCash = initial + salesCash - expensesCash;
 
     return {
       initial,
-      totalSales: salesCash + salesDigital,
+      totalSales: salesCash + salesDigitalTotal,
       salesCash,
-      salesDigital,
+      salesDebit,
+      salesCredit,
+      salesTransfer,
+      salesQR,
+      salesDigitalTotal,
       totalExpenses,
+      expensesCash,
       netCash,
       count: currentSales.length
     };
@@ -96,6 +110,34 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     alert('Caja Abierta Exitosamente');
   };
 
+  const handleWhatsApp = (closureData: any) => {
+    if (!settings.whatsappNumber) {
+      alert('Configura el número de WhatsApp en "Configuración" primero.');
+      return;
+    }
+    
+    const text = `*REPORTE CIERRE DE CAJA - ${settings.name}* %0A
+Fecha: ${new Date().toLocaleString()} %0A
+---------------------------------- %0A
+*SALDO INICIAL:* $${closureData.initialAmount || stats.initial} %0A
+---------------------------------- %0A
+*VENTAS:* %0A
+💵 Efectivo: $${closureData.salesCash || stats.salesCash} %0A
+💳 Débito: $${stats.salesDebit} %0A
+💳 Crédito: $${stats.salesCredit} %0A
+🏦 Transf: $${stats.salesTransfer} %0A
+📱 QR: $${stats.salesQR} %0A
+*TOTAL VENTAS:* $${closureData.totalSales || stats.totalSales} %0A
+---------------------------------- %0A
+*GASTOS:* -$${closureData.totalExpenses || stats.totalExpenses} %0A
+---------------------------------- %0A
+*EFECTIVO EN CAJA (Teórico):* $${closureData.totalCash || stats.netCash} %0A
+---------------------------------- %0A
+Notas: ${closureData.notes || notes || '-'}`;
+
+    window.open(`https://wa.me/${settings.whatsappNumber}?text=${text}`, '_blank');
+  };
+
   const handleClose = () => {
     if (!confirm(`¿Confirmar cierre de caja?\n\nDebería haber: $${stats.netCash.toLocaleString()} en efectivo.`)) return;
     const closure: CashClosure = {
@@ -105,12 +147,16 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
       totalSales: stats.totalSales,
       totalExpenses: stats.totalExpenses,
       totalCash: stats.netCash,
-      totalDigital: stats.salesDigital,
+      totalDigital: stats.salesDigitalTotal,
       transactionCount: stats.count,
       notes
     };
     onCloseRegister(closure);
-    printClosure({...closure, salesCash: stats.salesCash});
+    
+    if(confirm('Caja Cerrada. ¿Enviar reporte por WhatsApp?')) {
+      handleWhatsApp(closure);
+    }
+    
     setNotes('');
   };
 
@@ -123,12 +169,12 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
       </style></head><body>
         <div class="header"><h3>${settings?.name||'TecnoStore'}</h3><p>REPORTE DE CIERRE ${isPreview?'(PARCIAL)':''}</p><p>${new Date().toLocaleString()}</p></div><hr/>
         <div class="row"><span>Saldo Inicial:</span><span>$${closureData.initialAmount||stats.initial||0}</span></div><hr/>
-        <div class="row"><span>(+) Ventas Efec:</span><span>$${closureData.salesCash||0}</span></div>
-        <div class="row"><span>(+) Ventas Dig:</span><span>$${closureData.totalDigital||0}</span></div>
-        <div class="row" style="margin-bottom:10px"><span>(=) Ingresos:</span><span>$${(closureData.salesCash||0)+(closureData.totalDigital||0)}</span></div>
-        <div class="row"><span>(-) Gastos:</span><span>-$${closureData.totalExpenses}</span></div><hr/>
+        <div class="row"><span>(+) Efectivo:</span><span>$${closureData.salesCash||stats.salesCash||0}</span></div>
+        <div class="row"><span>(+) Digital Total:</span><span>$${closureData.totalDigital||stats.salesDigitalTotal||0}</span></div>
+        <div class="row" style="margin-bottom:10px"><span>(=) Ingresos:</span><span>$${(closureData.salesCash||stats.salesCash||0)+(closureData.totalDigital||stats.salesDigitalTotal||0)}</span></div>
+        <div class="row"><span>(-) Gastos:</span><span>-$${closureData.totalExpenses||stats.totalExpenses}</span></div><hr/>
         <h2>EFECTIVO CAJA: $${closureData.totalCash||closureData.netCash}</h2>
-        <p>Notas: ${closureData.notes||'-'}</p>
+        <p>Notas: ${closureData.notes||notes||'-'}</p>
       </body></html>
     `);
     win.document.close();
@@ -143,7 +189,12 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           {isRegisterOpen ? <span className="text-green-600">● Caja Abierta</span> : <span className="text-red-500">● Caja Cerrada</span>}
         </h1>
-        {isRegisterOpen && <button onClick={() => printClosure(stats, true)} className="flex items-center gap-2 text-brand-600 bg-brand-50 px-3 py-2 rounded-lg font-medium"><Printer size={18}/> Previsualizar</button>}
+        {isRegisterOpen && (
+          <div className="flex gap-2">
+             <button onClick={() => printClosure(stats, true)} className="flex items-center gap-2 text-gray-600 bg-gray-100 px-3 py-2 rounded-lg font-medium hover:bg-gray-200"><Printer size={18}/> Imprimir</button>
+             <button onClick={() => handleWhatsApp({})} className="flex items-center gap-2 text-green-700 bg-green-100 px-3 py-2 rounded-lg font-medium hover:bg-green-200"><Send size={18}/> WhatsApp</button>
+          </div>
+        )}
       </div>
 
       {!isRegisterOpen ? (
@@ -164,28 +215,52 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-             <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
-              <div className="text-gray-500 text-xs font-bold uppercase">Saldo Inicial</div>
-              <div className="text-2xl font-bold text-gray-700">${stats.initial.toLocaleString()}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200">
+              <div className="text-gray-500 text-xs font-bold uppercase flex items-center gap-1"><Wallet size={14}/> Inicial</div>
+              <div className="text-xl font-bold text-gray-700">${stats.initial.toLocaleString()}</div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-              <div className="text-gray-500 text-xs font-bold uppercase">Efectivo Neto</div>
-              <div className="text-3xl font-bold text-green-600">${stats.netCash.toLocaleString()}</div>
+            
+            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+              <div className="text-gray-500 text-xs font-bold uppercase flex items-center gap-1"><Banknote size={14}/> Ventas Efec.</div>
+              <div className="text-xl font-bold text-green-600">+${stats.salesCash.toLocaleString()}</div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-              <div className="text-gray-500 text-xs font-bold uppercase">Digital</div>
-              <div className="text-3xl font-bold text-blue-600">${stats.salesDigital.toLocaleString()}</div>
+
+            <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
+              <div className="text-gray-500 text-xs font-bold uppercase flex items-center gap-1"><ArrowRightLeft size={14}/> Gastos Efec.</div>
+              <div className="text-xl font-bold text-red-600">-${stats.expensesCash.toLocaleString()}</div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-red-500">
-              <div className="text-gray-500 text-xs font-bold uppercase">Gastos</div>
-              <div className="text-3xl font-bold text-red-600">${stats.totalExpenses.toLocaleString()}</div>
+
+            <div className="bg-green-50 p-4 rounded-xl shadow-sm border border-green-200 ring-1 ring-green-300">
+              <div className="text-green-800 text-xs font-bold uppercase flex items-center gap-1">💵 EN CAJA (Teórico)</div>
+              <div className="text-2xl font-bold text-green-700">${stats.netCash.toLocaleString()}</div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+
+          <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wider mt-4">Medios Digitales</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+             <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+               <span className="text-xs text-blue-600 font-bold flex items-center gap-1"><CreditCard size={12}/> Débito</span>
+               <span className="font-bold text-lg">${stats.salesDebit.toLocaleString()}</span>
+             </div>
+             <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+               <span className="text-xs text-blue-600 font-bold flex items-center gap-1"><CreditCard size={12}/> Crédito</span>
+               <span className="font-bold text-lg">${stats.salesCredit.toLocaleString()}</span>
+             </div>
+             <div className="bg-purple-50 p-3 rounded-xl border border-purple-100">
+               <span className="text-xs text-purple-600 font-bold flex items-center gap-1"><ArrowRightLeft size={12}/> Transf.</span>
+               <span className="font-bold text-lg">${stats.salesTransfer.toLocaleString()}</span>
+             </div>
+             <div className="bg-orange-50 p-3 rounded-xl border border-orange-100">
+               <span className="text-xs text-orange-600 font-bold flex items-center gap-1"><QrCode size={12}/> QR</span>
+               <span className="font-bold text-lg">${stats.salesQR.toLocaleString()}</span>
+             </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-4">
             <h3 className="font-bold mb-4 text-gray-800 flex items-center gap-2"><Lock size={18}/> Finalizar Jornada</h3>
             <div className="flex gap-4 items-end">
-              <div className="flex-1"><label className="text-xs text-gray-500 mb-1 block">Notas</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={notes} onChange={e => setNotes(e.target.value)} /></div>
+              <div className="flex-1"><label className="text-xs text-gray-500 mb-1 block">Notas del cierre</label><input className="w-full p-3 border rounded-lg bg-gray-50" value={notes} onChange={e => setNotes(e.target.value)} /></div>
               <button onClick={handleClose} className="bg-red-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-red-700 flex items-center gap-2 shadow-lg"><Wallet size={20}/> CERRAR CAJA</button>
             </div>
           </div>
@@ -197,7 +272,7 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
         {showHistory && (
           <div className="bg-white mt-4 rounded-xl shadow overflow-hidden">
             <table className="w-full text-left">
-              <thead className="bg-gray-50 text-gray-500 text-sm"><tr><th className="p-4">Fecha</th><th className="p-4">Inicial</th><th className="p-4">Efec. Final</th><th className="p-4">Dig.</th><th className="p-4">Gastos</th><th className="p-4"></th></tr></thead>
+              <thead className="bg-gray-50 text-gray-500 text-sm"><tr><th className="p-4">Fecha</th><th className="p-4">Inicial</th><th className="p-4">Efec. Final</th><th className="p-4">Dig. Total</th><th className="p-4">Gastos</th><th className="p-4"></th></tr></thead>
               <tbody className="divide-y divide-gray-100">
                 {[...closures].reverse().map(c => (
                   <tr key={c.id} className="hover:bg-gray-50 transition">
