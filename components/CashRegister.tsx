@@ -110,30 +110,44 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     alert('Caja Abierta Exitosamente');
   };
 
+  // 🆕 WHATSAPP CON EMOJIS BONITOS
   const handleWhatsApp = (closureData: any) => {
     if (!settings.whatsappNumber) {
       alert('Configura el número de WhatsApp en "Configuración" primero.');
       return;
     }
     
-    const text = `*REPORTE CIERRE DE CAJA - ${settings.name}* %0A
-Fecha: ${new Date().toLocaleString()} %0A
----------------------------------- %0A
-*SALDO INICIAL:* $${closureData.initialAmount || stats.initial} %0A
----------------------------------- %0A
-*VENTAS:* %0A
-💵 Efectivo: $${closureData.salesCash || stats.salesCash} %0A
-💳 Débito: $${stats.salesDebit} %0A
-💳 Crédito: $${stats.salesCredit} %0A
-🏦 Transf: $${stats.salesTransfer} %0A
-📱 QR: $${stats.salesQR} %0A
-*TOTAL VENTAS:* $${closureData.totalSales || stats.totalSales} %0A
----------------------------------- %0A
-*GASTOS:* -$${closureData.totalExpenses || stats.totalExpenses} %0A
----------------------------------- %0A
-*EFECTIVO EN CAJA (Teórico):* $${closureData.totalCash || stats.netCash} %0A
----------------------------------- %0A
-Notas: ${closureData.notes || notes || '-'}`;
+    const text = `🏪 *CIERRE DE CAJA - ${settings.name}* 🏪%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+📅 *Fecha:* ${new Date().toLocaleString()}%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+%0A
+💰 *SALDO INICIAL*%0A
+└─ $${closureData.initialAmount || stats.initial}%0A
+%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+📊 *VENTAS DEL DÍA*%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+💵 Efectivo: *$${closureData.salesCash || stats.salesCash}*%0A
+💳 Débito: $${stats.salesDebit}%0A
+💳 Crédito: $${stats.salesCredit}%0A
+🏦 Transferencia: $${stats.salesTransfer}%0A
+📱 QR/Billetera: $${stats.salesQR}%0A
+%0A
+✅ *TOTAL VENTAS:* $${closureData.totalSales || stats.totalSales}%0A
+%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+📉 *EGRESOS*%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+❌ Gastos: -$${closureData.totalExpenses || stats.totalExpenses}%0A
+%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+💵 *EFECTIVO EN CAJA*%0A
+━━━━━━━━━━━━━━━━━━━━%0A
+🎯 *Total Teórico:* $${closureData.totalCash || stats.netCash}%0A
+%0A
+${closureData.notes || notes ? `📝 *Notas:* ${closureData.notes || notes}%0A%0A` : ''}━━━━━━━━━━━━━━━━━━━━%0A
+✨ Reporte generado por TecnoStore ✨`;
 
     window.open(`https://wa.me/${settings.whatsappNumber}?text=${text}`, '_blank');
   };
