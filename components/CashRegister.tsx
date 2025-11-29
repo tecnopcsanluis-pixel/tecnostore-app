@@ -110,49 +110,82 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     alert('Caja Abierta Exitosamente');
   };
 
-  // 🆕 WHATSAPP CON EMOJIS BONITOS (encoding correcto)
+  // Helper: limpia caracteres problemáticos (box drawing, block elements, líneas extendidas) y normaliza
+  const sanitizeForWhatsApp = (text: string) => {
+    if (!text) return '';
+    // Normalizar forma compuesta
+    let s = text.normalize('NFC');
+    // Reemplaza rangos de "box drawing" y "block elements" y líneas horizontales extendidas por guiones simples
+    s = s.replace(/[\u2500-\u257F\u2580-\u259F\u23A0-\u23FF\u2501-\u2503]+/g, '-');
+    // Reemplaza varios guiones seguidos por una sola línea separadora clara
+    s = s.replace(/[-\s]{3,}/g, '-------------------------');
+    // Quitar caracteres de control raros
+    s = s.replace(/[\u0000-\u001F\u007F]/g, '');
+    // Trim final
+    return s.trim();
+  };
+
+  // Formatea número seguro
+  const fmt = (v: number | undefined | null) => (typeof v === 'number' ? v.toLocaleString() : '0');
+
+  // WHATSAPP: construye mensaje y lo abre en nueva pestaña. Esta versión sanitiza para WhatsApp Web y móviles.
   const handleWhatsApp = (closureData: any) => {
     if (!settings.whatsappNumber) {
       alert('Configura el número de WhatsApp en "Configuración" primero.');
       return;
     }
-    
-   const message = `
-📦 CIERRE DE CAJA - ${settings.name}
--------------------------
-📅 Fecha: ${new Date().toLocaleString()}
--------------------------
 
-💰 SALDO INICIAL
-- $${closureData.initialAmount || stats.initial}
+    // Asegurar que el número solo tenga dígitos (wa.me requiere formato internacional sin +)
+    const phone = settings.whatsappNumber.replace(/[^0-9]/g, '');
 
--------------------------
-📊 VENTAS DEL DÍA
--------------------------
-💵 Efectivo: $${closureData.salesCash || stats.salesCash}
-💳 Débito: $${stats.salesDebit}
-💳 Crédito: $${stats.salesCredit}
-🏦 Transferencia: $${stats.salesTransfer}
-📱 QR/Billetera: $${stats.salesQR}
+    let message = `📦 *CIERRE DE CAJA - ${settings.name}*\n`;
+    message += `-------------------------\n`;
+    message += `📅 Fecha: ${new Date().toLocaleString()}\n`;
+    message += `-------------------------\n\n`;
 
-✔️ TOTAL VENTAS: $${closureData.totalSales || stats.totalSales}
+    message += `💰 *SALDO INICIAL*\n`;
+    message += `- $${closureData.initialAmount ?? stats.initial}\n\n`;
 
--------------------------
-📉 EGRESOS
--------------------------
-❌ Gastos: -$${closureData.totalExpenses || stats.totalExpenses}
+    message += `-------------------------\n`;
+    message += `📊 *VENTAS DEL DÍA*\n`;
+    message += `-------------------------\n`;
+    message += `💵 Efectivo: $${closureData.salesCash ?? stats.salesCash}\n`;
+    message += `💳 Débito: $${stats.salesDebit}\n`;
+    message += `💳 Crédito: $${stats.salesCredit}\n`;
+    message += `🏦 Transferencia: $${stats.salesTransfer}\n`;
+    message += `📱 QR/Billetera: $${stats.salesQR}\n\n`;
 
--------------------------
-💵 EFECTIVO EN CAJA
--------------------------
-🎯 Total Teórico: $${closureData.totalCash || stats.netCash}
+    message += `✔️ *TOTAL VENTAS:* $${closureData.totalSales ?? stats.totalSales}\n\n`;
 
--------------------------
-✨ Reporte generado por TecnoStore ✨
-`;
+    message += `-------------------------\n`;
+    message += `📉 *EGRESOS*\n`;
+    message += `-------------------------\n`;
+    message += `❌ Gastos: -$${closureData.totalExpenses ?? stats.totalExpenses}\n\n`;
 
-const encodedMessage = encodeURIComponent(message);
-window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`, "_blank");
+    message += `-------------------------\n`;
+    message += `💵 *EFECTIVO EN CAJA*\n`;
+    message += `-------------------------\n`;
+    message += `🎯 Total Teórico: $${closureData.totalCash ?? stats.netCash}\n\n`;
+
+    if (closureData.notes || notes) {
+      message += `📝 Notas: ${closureData.notes ?? notes}\n\n`;
+    }
+
+    message += `-------------------------\n`;
+    message += `✨ Reporte generado por ${settings.name || 'TecnoStore'} ✨`;
+
+    // Sanitizar antes de encodeURIComponent (importante para WhatsApp Web)
+    const safe = sanitizeForWhatsApp(message);
+    const encodedMessage = encodeURIComponent(safe);
+
+    try {
+      // Abrir en nueva pestaña con wa.me (si el phone está vacío o inválido, usar api.whatsapp.com como fallback)
+      const base = phone ? `https://wa.me/${phone}?text=` : `https://api.whatsapp.com/send?text=`;
+      window.open(`${base}${encodedMessage}`, '_blank');
+    } catch (err) {
+      console.error('Error abriendo WhatsApp:', err);
+      alert('No se pudo abrir WhatsApp. Revisa que tu navegador permita popups.');
+    }
   };
 
   const handleClose = () => {
@@ -312,3 +345,4 @@ window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`, "
     </div>
   );
 };
+
