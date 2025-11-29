@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, CartItem, PaymentMethod, Sale, CompanySettings } from '../types';
-import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer, AlertTriangle, Lock, Edit2 } from 'lucide-react';
+import { Search, ShoppingCart, Trash, CheckCircle, ShoppingBag, Printer, AlertTriangle, Lock, Edit2, Zap } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface POSProps {
@@ -26,8 +26,34 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
 
   const categories = ['Todas', ...new Set(products.map(p => p.category))];
 
+  // 🆕 FUNCIÓN PARA CALCULAR EL PRECIO SEGÚN EL MEDIO DE PAGO
+  const calculatePrice = (product: Product, method: PaymentMethod): number => {
+    // Si paga en efectivo Y hay precio promo, usar ese
+    if (method === PaymentMethod.CASH && product.promoPrice) {
+      return product.promoPrice;
+    }
+    
+    // Si es medio digital, agregar 10%
+    if (method !== PaymentMethod.CASH) {
+      return product.price * 1.1;
+    }
+    
+    // Efectivo sin promo = precio normal
+    return product.price;
+  };
+
+  // 🆕 RECALCULAR PRECIOS DEL CARRITO CUANDO CAMBIA EL MEDIO DE PAGO
+  useEffect(() => {
+    setCart(prevCart => 
+      prevCart.map(item => ({
+        ...item,
+        appliedPrice: calculatePrice(item, paymentMethod)
+      }))
+    );
+  }, [paymentMethod]);
+
   const totals = useMemo(() => {
-    const sub = cart.reduce((a, i) => a + (i.price * i.quantity), 0);
+    const sub = cart.reduce((a, i) => a + ((i.appliedPrice || i.price) * i.quantity), 0);
     const discAmt = sub * (discount / 100);
     const afterDisc = sub - discAmt;
     const surAmt = surcharge ? afterDisc * 0.1 : 0;
@@ -35,19 +61,23 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
   }, [cart, discount, surcharge]);
 
   const addToCart = (p: Product) => {
+    const priceToUse = calculatePrice(p, paymentMethod);
+    
     setCart(prev => {
       const exist = prev.find(i => i.id === p.id);
-      if (exist) return prev.map(i => i.id === p.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { ...p, quantity: 1 }];
+      if (exist) {
+        return prev.map(i => i.id === p.id ? { ...i, quantity: i.quantity + 1, appliedPrice: priceToUse } : i);
+      }
+      return [...prev, { ...p, quantity: 1, appliedPrice: priceToUse }];
     });
   };
 
   const editItemPrice = (itemId: string) => {
     const item = cart.find(i => i.id === itemId);
     if (!item) return;
-    const newPrice = prompt('Nuevo precio para este producto:', item.price.toString());
+    const newPrice = prompt('Nuevo precio para este producto:', (item.appliedPrice || item.price).toString());
     if (newPrice !== null && !isNaN(Number(newPrice))) {
-      setCart(prev => prev.map(i => i.id === itemId ? { ...i, price: Number(newPrice) } : i));
+      setCart(prev => prev.map(i => i.id === itemId ? { ...i, appliedPrice: Number(newPrice) } : i));
     }
   };
 
@@ -89,7 +119,7 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
       </style></head><body>
         <div class="header"><h3>${settings?.name||'TecnoStore'}</h3><p>${settings?.address||''}<br/>${settings?.phone||''}</p></div><hr/>
         <div style="text-align:left;font-size:12px;margin:10px 0;">Fecha: ${new Date(sale.date).toLocaleString()}<br/>Ticket: #${sale.id.slice(0, 8)}<br/>Pago: ${sale.paymentMethod}</div><hr/>
-        <div class="items">${sale.items.map(i => `<div class="item"><span>${i.quantity} x ${i.name}</span><span>$${(i.price * i.quantity).toLocaleString()}</span></div>`).join('')}</div><hr/>
+        <div class="items">${sale.items.map(i => `<div class="item"><span>${i.quantity} x ${i.name}</span><span>$${((i.appliedPrice || i.price) * i.quantity).toLocaleString()}</span></div>`).join('')}</div><hr/>
         ${sale.discount>0?`<div class="item"><span>Descuento</span><span>-$${sale.discount}</span></div>`:''}
         ${sale.surcharge>0?`<div class="item"><span>Recargo</span><span>+$${sale.surcharge}</span></div>`:''}
         <div class="total">TOTAL: $${sale.total.toLocaleString()}</div>
@@ -124,12 +154,29 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
         
         <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-4 content-start pr-2">
           {filtered.map(p => (
-            <div key={p.id} onClick={() => p.stock > 0 && addToCart(p)} className={`bg-white p-3 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition border border-gray-100 ${p.stock === 0 ? 'opacity-50' : ''}`}>
+            <div key={p.id} onClick={() => p.stock > 0 && addToCart(p)} className={`bg-white p-3 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition border border-gray-100 relative ${p.stock === 0 ? 'opacity-50' : ''}`}>
+              {/* 🆕 BADGE DE PROMOCIÓN */}
+              {p.promoPrice && (
+                <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Zap size={10}/> PROMO
+                </div>
+              )}
               <div className="h-24 bg-gray-50 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                 {p.image ? <img src={p.image} className="w-full h-full object-cover"/> : <ShoppingBag className="text-gray-300"/>}
               </div>
               <div className="font-medium text-sm line-clamp-2">{p.name}</div>
-              <div className="text-brand-600 font-bold mt-1">${p.price}</div>
+              <div className="mt-1">
+                {p.promoPrice ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="text-gray-400 text-xs line-through">${p.price}</div>
+                    <div className="text-green-600 font-bold flex items-center gap-1">
+                      💵 ${p.promoPrice}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-brand-600 font-bold">${p.price}</div>
+                )}
+              </div>
               <div className="text-xs text-gray-400">{p.stock}u</div>
             </div>
           ))}
@@ -141,17 +188,35 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
           <div className="flex gap-2 items-center"><ShoppingCart className="text-brand-500"/> Carrito</div>
           {lastSale && <button onClick={() => printTicket(lastSale)} className="text-xs flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-2 py-1 rounded"><Printer size={12}/> Último Ticket</button>}
         </div>
+        
+        {/* 🆕 ALERTA DE PRECIOS PROMOCIONALES */}
+        {cart.some(i => i.promoPrice) && paymentMethod === PaymentMethod.CASH && (
+          <div className="mx-4 mt-4 bg-green-50 border border-green-200 p-2 rounded-lg text-xs text-green-700 flex items-center gap-2">
+            <Zap size={14} className="text-green-600"/>
+            <span className="font-bold">¡Precios promocionales aplicados!</span>
+          </div>
+        )}
+        
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.map(i => (
             <div key={i.id} className="flex gap-3 items-center">
               <div className="font-bold w-6 text-center">{i.quantity}x</div>
-              <div className="flex-1 text-sm"><div className="line-clamp-1">{i.name}</div>
-              <div className="text-xs text-gray-500 flex items-center gap-2">
-                ${i.price} 
-                <button onClick={() => editItemPrice(i.id)} className="text-blue-500 hover:bg-blue-50 rounded p-1"><Edit2 size={10}/></button>
+              <div className="flex-1 text-sm">
+                <div className="line-clamp-1 flex items-center gap-1">
+                  {i.name}
+                  {i.promoPrice && paymentMethod === PaymentMethod.CASH && (
+                    <span className="text-[9px] bg-green-500 text-white px-1 rounded">PROMO</span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 flex items-center gap-2">
+                  ${i.appliedPrice || i.price}
+                  {i.price !== (i.appliedPrice || i.price) && (
+                    <span className="line-through text-gray-400">${i.price}</span>
+                  )}
+                  <button onClick={() => editItemPrice(i.id)} className="text-blue-500 hover:bg-blue-50 rounded p-1"><Edit2 size={10}/></button>
+                </div>
               </div>
-              </div>
-              <div className="font-bold text-sm">${i.price * i.quantity}</div>
+              <div className="font-bold text-sm">${((i.appliedPrice || i.price) * i.quantity).toFixed(2)}</div>
               <button onClick={() => setCart(c => c.filter(x => x.id !== i.id))} className="text-gray-400 hover:text-red-500"><Trash size={16}/></button>
             </div>
           ))}
