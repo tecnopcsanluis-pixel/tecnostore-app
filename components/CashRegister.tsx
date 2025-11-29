@@ -110,46 +110,48 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     alert('Caja Abierta Exitosamente');
   };
 
-  // 🆕 WHATSAPP CON EMOJIS BONITOS
+  // 🆕 WHATSAPP CON EMOJIS BONITOS (encoding correcto)
   const handleWhatsApp = (closureData: any) => {
     if (!settings.whatsappNumber) {
       alert('Configura el número de WhatsApp en "Configuración" primero.');
       return;
     }
     
-    const text = `🏪 *CIERRE DE CAJA - ${settings.name}* 🏪%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-📅 *Fecha:* ${new Date().toLocaleString()}%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-%0A
-💰 *SALDO INICIAL*%0A
-└─ $${closureData.initialAmount || stats.initial}%0A
-%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-📊 *VENTAS DEL DÍA*%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-💵 Efectivo: *$${closureData.salesCash || stats.salesCash}*%0A
-💳 Débito: $${stats.salesDebit}%0A
-💳 Crédito: $${stats.salesCredit}%0A
-🏦 Transferencia: $${stats.salesTransfer}%0A
-📱 QR/Billetera: $${stats.salesQR}%0A
-%0A
-✅ *TOTAL VENTAS:* $${closureData.totalSales || stats.totalSales}%0A
-%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-📉 *EGRESOS*%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-❌ Gastos: -$${closureData.totalExpenses || stats.totalExpenses}%0A
-%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-💵 *EFECTIVO EN CAJA*%0A
-━━━━━━━━━━━━━━━━━━━━%0A
-🎯 *Total Teórico:* $${closureData.totalCash || stats.netCash}%0A
-%0A
-${closureData.notes || notes ? `📝 *Notas:* ${closureData.notes || notes}%0A%0A` : ''}━━━━━━━━━━━━━━━━━━━━%0A
+    const message = `🏪 *CIERRE DE CAJA - ${settings.name}* 🏪
+━━━━━━━━━━━━━━━━━━━━
+📅 *Fecha:* ${new Date().toLocaleString()}
+━━━━━━━━━━━━━━━━━━━━
+
+💰 *SALDO INICIAL*
+└─ ${closureData.initialAmount || stats.initial}
+
+━━━━━━━━━━━━━━━━━━━━
+📊 *VENTAS DEL DÍA*
+━━━━━━━━━━━━━━━━━━━━
+💵 Efectivo: *${closureData.salesCash || stats.salesCash}*
+💳 Débito: ${stats.salesDebit}
+💳 Crédito: ${stats.salesCredit}
+🏦 Transferencia: ${stats.salesTransfer}
+📱 QR/Billetera: ${stats.salesQR}
+
+✅ *TOTAL VENTAS:* ${closureData.totalSales || stats.totalSales}
+
+━━━━━━━━━━━━━━━━━━━━
+📉 *EGRESOS*
+━━━━━━━━━━━━━━━━━━━━
+❌ Gastos: -${closureData.totalExpenses || stats.totalExpenses}
+
+━━━━━━━━━━━━━━━━━━━━
+💵 *EFECTIVO EN CAJA*
+━━━━━━━━━━━━━━━━━━━━
+🎯 *Total Teórico:* ${closureData.totalCash || stats.netCash}
+
+${closureData.notes || notes ? `📝 *Notas:* ${closureData.notes || notes}\n\n` : ''}━━━━━━━━━━━━━━━━━━━━
 ✨ Reporte generado por TecnoStore ✨`;
 
-    window.open(`https://wa.me/${settings.whatsappNumber}?text=${text}`, '_blank');
+    // Usar encodeURIComponent para preservar los emojis
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`, '_blank');
   };
 
   const handleClose = () => {
