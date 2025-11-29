@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   category: string;
   price: number;
+  promoPrice?: number; // 🆕 NUEVO: Precio promocional en efectivo (opcional)
   stock: number;
   description?: string;
   image?: string; // Base64 string or URL
@@ -10,6 +11,7 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+  appliedPrice?: number; // 🆕 NUEVO: Precio que se aplicó realmente en el carrito
 }
 
 export enum PaymentMethod {
@@ -54,10 +56,10 @@ export interface CashOpening {
 export interface CashClosure {
   id: string;
   date: string;
-  initialAmount: number; // Nuevo: Con cuánto se abrió
+  initialAmount: number;
   totalSales: number;
   totalExpenses: number;
-  totalCash: number; // Net Cash (Initial + SalesCash - ExpensesCash)
+  totalCash: number;
   totalDigital: number; 
   transactionCount: number;
   notes?: string;
@@ -69,8 +71,8 @@ export interface CompanySettings {
   phone: string;
   footerMessage: string;
   logoUrl?: string;
-  adminPin?: string; // Nuevo PIN de seguridad
-  whatsappNumber?: string; // Nuevo para envío de caja
+  adminPin?: string;
+  whatsappNumber?: string;
 }
 
 export interface SalesSummary {
