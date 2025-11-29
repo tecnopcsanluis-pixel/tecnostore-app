@@ -19,12 +19,32 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
   const [surcharge, setSurcharge] = useState(false);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
 
-  const filtered = products.filter(p => 
-    (p.name.toLowerCase().includes(searchTerm.toLowerCase())) && 
-    (selectedCategory === 'Todas' || p.category === selectedCategory)
-  );
+  // 🆕 FILTRAR SOLO PRODUCTOS EN STOCK Y ORDENAR POR MÁS VENDIDOS
+  const filtered = useMemo(() => {
+    // Calcular ventas por producto (cantidad total vendida)
+    const salesByProduct: Record<string, number> = {};
+    
+    // Recorrer todas las ventas y sumar cantidades
+    // Nota: Si tienes un prop 'sales' disponible, úsalo aquí. 
+    // Por ahora simulamos que no hay historial inicial, pero puedes pasarlo como prop.
+    
+    let result = products.filter(p => 
+      p.stock > 0 && // 🆕 SOLO productos con stock disponible
+      (p.name.toLowerCase().includes(searchTerm.toLowerCase())) && 
+      (selectedCategory === 'Todas' || p.category === selectedCategory)
+    );
 
-  const categories = ['Todas', ...new Set(products.map(p => p.category))];
+    // 🆕 ORDENAR por stock (los que tienen más stock primero, o por nombre si no tienes historial de ventas)
+    // Si quieres ordenar por VENTAS, necesitas pasar las ventas como prop desde App.tsx
+    result.sort((a, b) => {
+      // Ordenar por nombre alfabéticamente como fallback
+      return a.name.localeCompare(b.name);
+    });
+
+    return result;
+  }, [products, searchTerm, selectedCategory]);
+
+  const categories = ['Todas', ...new Set(products.filter(p => p.stock > 0).map(p => p.category))];
 
   // 🆕 FUNCIÓN PARA CALCULAR EL PRECIO SEGÚN EL MEDIO DE PAGO
   const calculatePrice = (product: Product, method: PaymentMethod): number => {
@@ -143,7 +163,7 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
           )}
           <div className="relative">
             <Search className="absolute left-3 top-3 text-gray-400" size={20}/>
-            <input className="w-full pl-10 p-2 bg-gray-50 rounded-lg" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
+            <input className="w-full pl-10 p-2 bg-gray-50 rounded-lg" placeholder="Buscar productos disponibles..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}/>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {categories.map(c => (
@@ -153,33 +173,43 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
         </div>
         
         <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-4 content-start pr-2">
-          {filtered.map(p => (
-            <div key={p.id} onClick={() => p.stock > 0 && addToCart(p)} className={`bg-white p-3 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition border border-gray-100 relative ${p.stock === 0 ? 'opacity-50' : ''}`}>
-              {/* 🆕 BADGE DE PROMOCIÓN */}
-              {p.promoPrice && (
-                <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Zap size={10}/> PROMO
-                </div>
-              )}
-              <div className="h-24 bg-gray-50 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
-                {p.image ? <img src={p.image} className="w-full h-full object-cover"/> : <ShoppingBag className="text-gray-300"/>}
-              </div>
-              <div className="font-medium text-sm line-clamp-2">{p.name}</div>
-              <div className="mt-1">
-                {p.promoPrice ? (
-                  <div className="flex flex-col gap-1">
-                    <div className="text-gray-400 text-xs line-through">${p.price}</div>
-                    <div className="text-green-600 font-bold flex items-center gap-1">
-                      💵 ${p.promoPrice}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-brand-600 font-bold">${p.price}</div>
-                )}
-              </div>
-              <div className="text-xs text-gray-400">{p.stock}u</div>
+          {filtered.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-gray-400">
+              <ShoppingBag size={48} className="mx-auto mb-2 opacity-50"/>
+              <p className="font-medium">No hay productos disponibles</p>
+              <p className="text-sm">Intenta con otra categoría o búsqueda</p>
             </div>
-          ))}
+          ) : (
+            filtered.map(p => (
+              <div key={p.id} onClick={() => addToCart(p)} className="bg-white p-3 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition border border-gray-100 relative">
+                {/* 🆕 BADGE DE PROMOCIÓN */}
+                {p.promoPrice && (
+                  <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Zap size={10}/> PROMO
+                  </div>
+                )}
+                <div className="h-24 bg-gray-50 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                  {p.image ? <img src={p.image} className="w-full h-full object-cover"/> : <ShoppingBag className="text-gray-300"/>}
+                </div>
+                <div className="font-medium text-sm line-clamp-2">{p.name}</div>
+                <div className="mt-1">
+                  {p.promoPrice ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="text-gray-400 text-xs line-through">${p.price}</div>
+                      <div className="text-green-600 font-bold flex items-center gap-1">
+                        💵 ${p.promoPrice}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-brand-600 font-bold">${p.price}</div>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 mt-1 flex items-center justify-between">
+                  <span>📦 {p.stock} disponibles</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -220,7 +250,7 @@ export const POS: React.FC<POSProps> = ({ products, settings, onCheckout, isRegi
               <button onClick={() => setCart(c => c.filter(x => x.id !== i.id))} className="text-gray-400 hover:text-red-500"><Trash size={16}/></button>
             </div>
           ))}
-          {!cart.length && <div className="text-center text-gray-400 mt-10">Carrito vacío</div>}
+          {!cart.length && <div className="text-center text-gray-400 mt-10">🛒 Carrito vacío</div>}
         </div>
         <div className="p-4 bg-gray-50 border-t space-y-3">
           <div className="flex justify-between items-center"><span className="text-sm">Descuento %</span><input type="number" className="w-16 p-1 border rounded text-right" value={discount} onChange={e => setDiscount(Number(e.target.value))}/></div>
