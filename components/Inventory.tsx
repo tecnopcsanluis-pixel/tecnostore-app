@@ -129,6 +129,7 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
           name: productForm.name,
           category: productForm.category || 'General',
           price: Number(productForm.price),
+          promoPrice: productForm.promoPrice ? Number(productForm.promoPrice) : undefined,
           stock: Number(productForm.stock) || 0,
           image: productForm.image || ''
         } as Product);
@@ -256,13 +257,14 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
               <th className="p-4 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('price')}>
                  <div className="flex items-center gap-1">Precio <ArrowUpDown size={14} className={sortField === 'price' ? 'text-brand-500' : 'text-gray-400'}/></div>
               </th>
+              <th className="p-4">Promo Efectivo</th>
               <th className="p-4">Stock</th>
               <th className="p-4 text-right">Acción</th>
             </tr>
           </thead>
           <tbody>
             {processedProducts.length === 0 ? (
-               <tr><td colSpan={7} className="text-center py-12 text-gray-400">No hay productos.</td></tr>
+               <tr><td colSpan={8} className="text-center py-12 text-gray-400">No hay productos.</td></tr>
             ) : (
               processedProducts.map(p => (
                 <tr key={p.id} className={`hover:bg-gray-50 ${selectedIds.has(p.id) ? 'bg-blue-50' : ''}`}>
@@ -282,6 +284,13 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
                   </td>
                   <td className="p-4 text-sm text-gray-600">{p.category}</td>
                   <td className="p-4 font-bold text-brand-600">${p.price}</td>
+                  <td className="p-4">
+                    {p.promoPrice ? (
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-bold">💵 ${p.promoPrice}</span>
+                    ) : (
+                      <span className="text-gray-300 text-xs">Sin promo</span>
+                    )}
+                  </td>
                   <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${p.stock < 5 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{p.stock} u.</span></td>
                   <td className="p-4 text-right flex justify-end gap-2">
                     {isAdmin && (
@@ -312,9 +321,30 @@ export const Inventory: React.FC<InventoryProps> = ({ products, sales, isAdmin, 
               </div>
               <input className="w-full p-2 border rounded" placeholder="Nombre" value={productForm.name || ''} onChange={e => setProductForm({...productForm, name: e.target.value})}/>
               <input className="w-full p-2 border rounded" placeholder="Categoría" value={productForm.category || ''} onChange={e => setProductForm({...productForm, category: e.target.value})}/>
-              <div className="flex gap-2">
-                <input type="number" className="w-1/2 p-2 border rounded" placeholder="Precio" value={productForm.price || ''} onChange={e => setProductForm({...productForm, price: Number(e.target.value)})}/>
-                <input type="number" className="w-1/2 p-2 border rounded" placeholder="Stock" value={productForm.stock || ''} onChange={e => setProductForm({...productForm, stock: Number(e.target.value)})}/>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="w-1/2">
+                    <label className="text-xs text-gray-600 font-medium">Precio Normal</label>
+                    <input type="number" className="w-full p-2 border rounded" placeholder="Precio" value={productForm.price || ''} onChange={e => setProductForm({...productForm, price: Number(e.target.value)})}/>
+                  </div>
+                  <div className="w-1/2">
+                    <label className="text-xs text-gray-600 font-medium">Stock</label>
+                    <input type="number" className="w-full p-2 border rounded" placeholder="Stock" value={productForm.stock || ''} onChange={e => setProductForm({...productForm, stock: Number(e.target.value)})}/>
+                  </div>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <label className="text-xs text-green-700 font-bold flex items-center gap-1">
+                    💵 Precio PROMO en Efectivo (Opcional)
+                  </label>
+                  <input 
+                    type="number" 
+                    className="w-full p-2 border border-green-300 rounded mt-1 bg-white" 
+                    placeholder="Deja vacío si no hay promo" 
+                    value={productForm.promoPrice || ''} 
+                    onChange={e => setProductForm({...productForm, promoPrice: e.target.value ? Number(e.target.value) : undefined})}
+                  />
+                  <p className="text-xs text-green-600 mt-1">Si completas este campo, se aplicará automáticamente al pagar en efectivo.</p>
+                </div>
               </div>
               <button onClick={handleSave} disabled={isSaving} className="w-full py-2 bg-brand-600 text-white rounded font-bold mt-2 flex justify-center items-center gap-2">
                  {isSaving ? <Loader2 className="animate-spin"/> : 'Guardar'}
