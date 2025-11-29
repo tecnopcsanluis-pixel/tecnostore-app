@@ -117,41 +117,42 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
       return;
     }
     
-    const message = `🏪 *CIERRE DE CAJA - ${settings.name}* 🏪
-━━━━━━━━━━━━━━━━━━━━
-📅 *Fecha:* ${new Date().toLocaleString()}
-━━━━━━━━━━━━━━━━━━━━
+   const message = `
+📦 CIERRE DE CAJA - ${settings.name}
+-------------------------
+📅 Fecha: ${new Date().toLocaleString()}
+-------------------------
 
-💰 *SALDO INICIAL*
-└─ ${closureData.initialAmount || stats.initial}
+💰 SALDO INICIAL
+- $${closureData.initialAmount || stats.initial}
 
-━━━━━━━━━━━━━━━━━━━━
-📊 *VENTAS DEL DÍA*
-━━━━━━━━━━━━━━━━━━━━
-💵 Efectivo: *${closureData.salesCash || stats.salesCash}*
-💳 Débito: ${stats.salesDebit}
-💳 Crédito: ${stats.salesCredit}
-🏦 Transferencia: ${stats.salesTransfer}
-📱 QR/Billetera: ${stats.salesQR}
+-------------------------
+📊 VENTAS DEL DÍA
+-------------------------
+💵 Efectivo: $${closureData.salesCash || stats.salesCash}
+💳 Débito: $${stats.salesDebit}
+💳 Crédito: $${stats.salesCredit}
+🏦 Transferencia: $${stats.salesTransfer}
+📱 QR/Billetera: $${stats.salesQR}
 
-✅ *TOTAL VENTAS:* ${closureData.totalSales || stats.totalSales}
+✔️ TOTAL VENTAS: $${closureData.totalSales || stats.totalSales}
 
-━━━━━━━━━━━━━━━━━━━━
-📉 *EGRESOS*
-━━━━━━━━━━━━━━━━━━━━
-❌ Gastos: -${closureData.totalExpenses || stats.totalExpenses}
+-------------------------
+📉 EGRESOS
+-------------------------
+❌ Gastos: -$${closureData.totalExpenses || stats.totalExpenses}
 
-━━━━━━━━━━━━━━━━━━━━
-💵 *EFECTIVO EN CAJA*
-━━━━━━━━━━━━━━━━━━━━
-🎯 *Total Teórico:* ${closureData.totalCash || stats.netCash}
+-------------------------
+💵 EFECTIVO EN CAJA
+-------------------------
+🎯 Total Teórico: $${closureData.totalCash || stats.netCash}
 
-${closureData.notes || notes ? `📝 *Notas:* ${closureData.notes || notes}\n\n` : ''}━━━━━━━━━━━━━━━━━━━━
-✨ Reporte generado por TecnoStore ✨`;
+-------------------------
+✨ Reporte generado por TecnoStore ✨
+`;
 
-    // Usar encodeURIComponent para preservar los emojis
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`, '_blank');
+const encodedMessage = encodeURIComponent(message);
+window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodedMessage}`, "_blank");
   };
 
   const handleClose = () => {
