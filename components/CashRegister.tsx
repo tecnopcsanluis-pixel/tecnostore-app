@@ -10,7 +10,7 @@ interface CashRegisterProps {
   openings: CashOpening[];
   settings: CompanySettings;
   isAdmin: boolean;
-  products?: Product[]; // Nuevo prop opcional
+  products?: Product[];
   onOpenRegister: (opening: CashOpening) => void;
   onCloseRegister: (closure: CashClosure) => void;
   onDeleteClosure: (id: string) => void;
@@ -134,8 +134,8 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
         id: product.id,
         name: product.name,
         price: product.price,
-        quantity: 1,
-        cost: product.cost
+        quantity: 1
+        // Eliminado 'cost' para evitar errores de compilación
       });
     }
     setEditingSale(recalculateTotal({ ...editingSale, items: newItems }));
