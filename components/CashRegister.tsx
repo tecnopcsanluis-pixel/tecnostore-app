@@ -13,11 +13,12 @@ interface CashRegisterProps {
   onOpenRegister: (opening: CashOpening) => void;
   onCloseRegister: (closure: CashClosure) => void;
   onDeleteClosure: (id: string) => void;
+  onDeleteSale?: (id: string) => void;
 }
 
 export const CashRegister: React.FC<CashRegisterProps> = ({ 
   sales, expenses, closures, openings, settings, isAdmin, 
-  onOpenRegister, onCloseRegister, onDeleteClosure 
+  onOpenRegister, onCloseRegister, onDeleteClosure, onDeleteSale
 }) => {
   const [notes, setNotes] = useState('');
   const [openingAmount, setOpeningAmount] = useState<string>('');
@@ -60,7 +61,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
   const stats = useMemo(() => {
     const initial = isRegisterOpen && lastOpening ? lastOpening.amount : 0;
     
-    // Desglose detallado
     const salesCash = currentSales.filter(s => s.paymentMethod === PaymentMethod.CASH).reduce((a, s) => a + s.total, 0);
     const salesDebit = currentSales.filter(s => s.paymentMethod === PaymentMethod.DEBIT).reduce((a, s) => a + s.total, 0);
     const salesCredit = currentSales.filter(s => s.paymentMethod === PaymentMethod.CREDIT).reduce((a, s) => a + s.total, 0);
@@ -110,7 +110,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     alert('Caja Abierta Exitosamente');
   };
 
-  // WHATSAPP - VERSION SOLO TEXTO (sin emojis)
   const handleWhatsApp = (closureData: any) => {
     if (!settings.whatsappNumber) {
       alert('Configura el número de WhatsApp en "Configuración" primero.');
@@ -198,6 +197,29 @@ Generado por TecnoStore`;
     win.close();
   };
 
+  const printSaleTicket = (sale: Sale) => {
+    const win = window.open('', 'PRINT', 'height=600,width=400');
+    if (!win) return;
+    
+    win.document.write(`
+      <html><head><style>
+        body{font-family:monospace;padding:20px;text-align:center}.header{margin-bottom:20px}.item{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}.total{font-weight:bold;font-size:16px;margin-top:10px;border-top:1px dashed black;padding-top:10px}.footer{margin-top:20px;font-size:10px}hr{border-top:1px dashed black}
+      </style></head><body>
+        <div class="header"><h3>${settings?.name||'TecnoStore'}</h3><p>${settings?.address||''}<br/>${settings?.phone||''}</p><p><strong>REIMPRESION</strong></p></div><hr/>
+        <div style="text-align:left;font-size:12px;margin:10px 0;">Fecha: ${new Date(sale.date).toLocaleString()}<br/>Ticket: #${sale.id.slice(0, 8)}<br/>Pago: ${sale.paymentMethod}</div><hr/>
+        <div class="items">${sale.items.map(i => `<div class="item"><span>${i.quantity} x ${i.name}</span><span>$${((i.appliedPrice || i.price) * i.quantity).toLocaleString()}</span></div>`).join('')}</div><hr/>
+        ${sale.discount>0?`<div class="item"><span>Descuento</span><span>-$${sale.discount}</span></div>`:''}
+        ${sale.surcharge>0?`<div class="item"><span>Recargo</span><span>+$${sale.surcharge}</span></div>`:''}
+        <div class="total">TOTAL: $${sale.total.toLocaleString()}</div>
+        <div class="footer"><p>${settings?.footerMessage||'Gracias'}</p></div>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -272,6 +294,58 @@ Generado por TecnoStore`;
              </div>
           </div>
 
+          {/* VENTAS DEL DÍA ACTUAL */}
+          {currentSales.length > 0 && (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="font-bold mb-4 text-gray-800 flex items-center gap-2">
+                <Calendar size={18}/> Ventas de Hoy ({currentSales.length})
+              </h3>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {[...currentSales].reverse().map(sale => (
+                  <div key={sale.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          {new Date(sale.date).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                          {sale.paymentMethod}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ').substring(0, 50)}
+                        {sale.items.map(i => `${i.quantity}x ${i.name}`).join(', ').length > 50 ? '...' : ''}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-lg text-gray-800">${sale.total.toLocaleString()}</span>
+                      <button 
+                        onClick={() => printSaleTicket(sale)} 
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                        title="Reimprimir ticket"
+                      >
+                        <Printer size={16}/>
+                      </button>
+                      {isAdmin && onDeleteSale && (
+                        <button 
+                          onClick={() => {
+                            if(confirm('⚠️ ¿Eliminar esta venta?\n\nEsta acción NO devuelve el stock automáticamente.')) {
+                              onDeleteSale(sale.id);
+                            }
+                          }} 
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                          title="Eliminar venta"
+                        >
+                          <Trash2 size={16}/>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-4">
             <h3 className="font-bold mb-4 text-gray-800 flex items-center gap-2"><Lock size={18}/> Finalizar Jornada</h3>
             <div className="flex gap-4 items-end">
@@ -283,7 +357,7 @@ Generado por TecnoStore`;
       )}
 
       <div className="pt-8 border-t">
-        <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 text-gray-500 hover:text-brand-600 transition font-medium">{showHistory ? <ChevronUp/> : <ChevronDown/>} Historial ({closures.length})</button>
+        <button onClick={() => setShowHistory(!showHistory)} className="flex items-center gap-2 text-gray-500 hover:text-brand-600 transition font-medium">{showHistory ? <ChevronUp/> : <ChevronDown/>} Historial de Cierres ({closures.length})</button>
         {showHistory && (
           <div className="bg-white mt-4 rounded-xl shadow overflow-hidden">
             <table className="w-full text-left">
