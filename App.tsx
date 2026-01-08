@@ -218,6 +218,7 @@ function App() {
             openings={openings}
             settings={settings}
             isAdmin={isAdmin}
+            products={products}  // <--- ¡AGREGA ESTA LÍNEA!
             onOpenRegister={handleOpenRegister}
             onCloseRegister={handleCloseRegister}
             onDeleteClosure={handleDeleteClosure}
