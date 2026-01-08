@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Sale, CashClosure, PaymentMethod, Expense, CompanySettings, CashOpening, Product } from '../types';
-import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Send, Edit, Plus, Minus, X, Save } from 'lucide-react';
+import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Edit, Plus, Minus, X, Save, Copy, Check } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CashRegisterProps {
@@ -29,6 +29,9 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
   // Estado para la edición
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [productSearch, setProductSearch] = useState('');
+  
+  // Estado visual para confirmar copia
+  const [copied, setCopied] = useState(false);
 
   const lastClosure = useMemo(() => {
     if (!closures.length) return null;
@@ -97,7 +100,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
   }, [currentSales, currentExpenses, isRegisterOpen, lastOpening]);
 
   // --- Lógica del Editor ---
-
   const recalculateTotal = (sale: Sale): Sale => {
     const subtotal = sale.items.reduce((acc, item) => acc + ((item.appliedPrice || item.price) * item.quantity), 0);
     const total = subtotal - (sale.discount || 0) + (sale.surcharge || 0);
@@ -108,7 +110,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     if (!editingSale) return;
     const newItems = [...editingSale.items];
     const item = newItems[index];
-    
     const newQty = item.quantity + change;
     if (newQty > 0) {
       item.quantity = newQty;
@@ -125,7 +126,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
   const handleAddItem = (product: Product) => {
     if (!editingSale) return;
     const existingIndex = editingSale.items.findIndex(i => i.id === product.id);
-    
     let newItems = [...editingSale.items];
     if (existingIndex >= 0) {
       newItems[existingIndex].quantity += 1;
@@ -135,7 +135,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
         name: product.name,
         price: product.price,
         quantity: 1,
-        // --- FIX APLICADO AQUÍ: Agregamos category y stock ---
         category: product.category,
         stock: product.stock
       });
@@ -148,7 +147,6 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     if (!productSearch) return [];
     return products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
   }, [products, productSearch]);
-
   // --- Fin Lógica Editor ---
 
   const handleOpen = (e: React.FormEvent) => {
@@ -171,50 +169,56 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
     alert('Caja Abierta Exitosamente');
   };
 
-  const handleWhatsApp = (closureData: any) => {
-    if (!settings.whatsappNumber) {
-      alert('Configura el número de WhatsApp en "Configuración" primero.');
-      return;
-    }
+  // --- NUEVA LÓGICA DE COPIADO ---
+  const handleCopyReport = async () => {
+    const dateStr = new Date().toLocaleDateString('es-AR');
     
-    const text = `*REPORTE CIERRE DE CAJA*
-*${settings.name}*
-----------------------------------
-Fecha: ${new Date().toLocaleString()}
-----------------------------------
+    // Formatear gastos
+    const expensesList = currentExpenses.length > 0 
+      ? currentExpenses.map(e => `   - ${e.description} ($${e.amount.toLocaleString()})`).join('\n')
+      : '   - Sin gastos registrados';
 
-*SALDO INICIAL*
-Efectivo al abrir: $${closureData.initialAmount || stats.initial}
+    // Construir los medios de pago dinámicamente
+    let paymentDetails = `- Efectivo: $${stats.salesCash.toLocaleString()}\n`;
+    if (stats.salesTransfer > 0) paymentDetails += `- Transferencia: $${stats.salesTransfer.toLocaleString()}\n`;
+    if (stats.salesDebit > 0) paymentDetails += `- Débito: $${stats.salesDebit.toLocaleString()}\n`;
+    if (stats.salesCredit > 0) paymentDetails += `- Crédito: $${stats.salesCredit.toLocaleString()}\n`;
+    if (stats.salesQR > 0) paymentDetails += `- QR/Billetera: $${stats.salesQR.toLocaleString()}\n`;
 
-----------------------------------
-*VENTAS DEL DIA*
-----------------------------------
-Efectivo: $${closureData.salesCash || stats.salesCash}
-Debito: $${stats.salesDebit}
-Credito: $${stats.salesCredit}
-Transferencia: $${stats.salesTransfer}
-QR / Billetera: $${stats.salesQR}
+    const text = `📅 CAJA ${dateStr}
+--------------------------
+📈 TOTAL VENTAS: $${stats.totalSales.toLocaleString()}
+--------------------------
+💰 Caja Inicial: $${stats.initial.toLocaleString()}
+💵 Ingresos Efectivo: $${stats.salesCash.toLocaleString()}
+💳 Ingresos Digitales: $${stats.salesDigitalTotal.toLocaleString()}
+🔻 Egresos: $${stats.totalExpenses.toLocaleString()}
 
-*TOTAL VENTAS: $${closureData.totalSales || stats.totalSales}*
+📝 Detalle Gastos:
+${expensesList}
+--------------------------
+✅ CAJA FINAL (Efectivo): $${stats.netCash.toLocaleString()}
 
-----------------------------------
-*EGRESOS*
-----------------------------------
-Gastos en efectivo: $${closureData.totalExpenses || stats.totalExpenses}
+Detalle Medios de Pago:
+${paymentDetails}
+${notes ? `Observaciones: ${notes}` : ''}`;
 
-----------------------------------
-*RESUMEN FINAL*
-----------------------------------
-*EFECTIVO EN CAJA: $${closureData.totalCash || stats.netCash}*
-
-${closureData.notes || notes ? `Observaciones: ${closureData.notes || notes}\n\n` : ''}----------------------------------
-Generado por TecnoStore`;
-
-    window.open(`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      alert('Error al copiar. Intenta manualmente.');
+      console.error(err);
+    }
   };
 
   const handleClose = () => {
     if (!confirm(`¿Confirmar cierre de caja?\n\nDebería haber: $${stats.netCash.toLocaleString()} en efectivo.`)) return;
+    
+    // Primero intentamos copiar
+    handleCopyReport();
+
     const closure: CashClosure = {
       id: uuidv4(),
       date: new Date().toISOString(),
@@ -227,11 +231,7 @@ Generado por TecnoStore`;
       notes
     };
     onCloseRegister(closure);
-    
-    if(confirm('Caja Cerrada. ¿Enviar reporte por WhatsApp?')) {
-      handleWhatsApp(closure);
-    }
-    
+    alert('Caja Cerrada y reporte copiado al portapapeles.');
     setNotes('');
   };
 
@@ -261,7 +261,6 @@ Generado por TecnoStore`;
   const printSaleTicket = (sale: Sale) => {
     const win = window.open('', 'PRINT', 'height=600,width=400');
     if (!win) return;
-    
     win.document.write(`
       <html><head><style>
         body{font-family:monospace;padding:20px;text-align:center}.header{margin-bottom:20px}.item{display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px}.total{font-weight:bold;font-size:16px;margin-top:10px;border-top:1px dashed black;padding-top:10px}.footer{margin-top:20px;font-size:10px}hr{border-top:1px dashed black}
@@ -290,7 +289,19 @@ Generado por TecnoStore`;
         {isRegisterOpen && (
           <div className="flex gap-2">
              <button onClick={() => printClosure(stats, true)} className="flex items-center gap-2 text-gray-600 bg-gray-100 px-3 py-2 rounded-lg font-medium hover:bg-gray-200"><Printer size={18}/> Imprimir</button>
-             <button onClick={() => handleWhatsApp({})} className="flex items-center gap-2 text-green-700 bg-green-100 px-3 py-2 rounded-lg font-medium hover:bg-green-200"><Send size={18}/> WhatsApp</button>
+             
+             {/* BOTÓN COPIAR CAJA */}
+             <button 
+                onClick={handleCopyReport} 
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition duration-200 ${
+                  copied 
+                    ? 'bg-green-600 text-white' 
+                    : 'text-brand-700 bg-brand-100 hover:bg-brand-200'
+                }`}
+             >
+                {copied ? <Check size={18}/> : <Copy size={18}/>}
+                {copied ? '¡Copiado!' : 'Copiar Caja'}
+             </button>
           </div>
         )}
       </div>
