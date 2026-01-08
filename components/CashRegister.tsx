@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Sale, CashClosure, PaymentMethod, Expense, CompanySettings, CashOpening } from '../types';
-import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Send, Pencil } from 'lucide-react';
+import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Send, Edit } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CashRegisterProps {
@@ -334,7 +334,7 @@ Generado por TecnoStore`;
                           className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition"
                           title="Editar venta"
                         >
-                          <Pencil size={16} />
+                          <Edit size={16} />
                         </button>
                       )}
                       {isAdmin && onDeleteSale && (
@@ -409,8 +409,8 @@ Generado por TecnoStore`;
                 })
               }
             >
-              {Object.values(PaymentMethod).map(pm => (
-                <option key={pm} value={pm}>{pm}</option>
+              {[PaymentMethod.CASH, PaymentMethod.DEBIT, PaymentMethod.CREDIT, PaymentMethod.TRANSFER, PaymentMethod.QR].map(pm => (
+                 <option key={pm} value={pm}>{pm}</option>
               ))}
             </select>
 
