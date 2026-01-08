@@ -36,18 +36,20 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  /* ================== SUBSCRIPCIONES ================== */
+
   useEffect(() => {
-    const unsubSettings = StorageService.subscribeToSettings((data) => {
+    const unsubSettings = StorageService.subscribeToSettings(data => {
       if (data) setSettings(data);
     });
-    const unsubProducts = StorageService.subscribeToProducts((data) => {
+    const unsubProducts = StorageService.subscribeToProducts(data => {
       setProducts(data);
       setIsLoading(false);
     });
-    const unsubSales = StorageService.subscribeToSales((data) => setSales(data));
-    const unsubExpenses = StorageService.subscribeToExpenses((data) => setExpenses(data));
-    const unsubClosures = StorageService.subscribeToClosures((data) => setClosures(data));
-    const unsubOpenings = StorageService.subscribeToOpenings((data) => setOpenings(data));
+    const unsubSales = StorageService.subscribeToSales(data => setSales(data));
+    const unsubExpenses = StorageService.subscribeToExpenses(data => setExpenses(data));
+    const unsubClosures = StorageService.subscribeToClosures(data => setClosures(data));
+    const unsubOpenings = StorageService.subscribeToOpenings(data => setOpenings(data));
 
     return () => {
       unsubSettings();
@@ -59,26 +61,7 @@ function App() {
     };
   }, []);
 
-  // --- LÓGICA DE ESTADO DE CAJA ---
-  const lastClosure = useMemo(() => {
-    if (!closures.length) return null;
-    return [...closures].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
-  }, [closures]);
-
-  const lastOpening = useMemo(() => {
-    if (!openings.length) return null;
-    return [...openings].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )[0];
-  }, [openings]);
-
-  const isRegisterOpen = useMemo(() => {
-    if (!lastOpening) return false;
-    if (!lastClosure) return true;
-    return new Date(lastOpening.date) > new Date(lastClosure.date);
-  }, [lastOpening, lastClosure]);
+  /* ================== ADMIN ================== */
 
   const handleToggleAdmin = () => {
     if (isAdmin) {
@@ -93,6 +76,8 @@ function App() {
     }
   };
 
+  /* ================== PRODUCTOS ================== */
+
   const handleAddProduct = async (product: Product) =>
     await StorageService.addProduct(product);
 
@@ -102,30 +87,54 @@ function App() {
   const handleDeleteProduct = async (id: string) =>
     await StorageService.deleteProduct(id);
 
+  /* ================== VENTAS ================== */
+
   const handleCheckout = async (newSale: Sale) => {
     await StorageService.addSale(newSale);
 
-    const updates = newSale.items.map(async (item) => {
-      const original = products.find(p => p.id === item.id);
-      if (original) {
+    // descontar stock
+    for (const item of newSale.items) {
+      const product = products.find(p => p.id === item.id);
+      if (product) {
         await StorageService.updateProduct({
-          ...original,
-          stock: Math.max(0, original.stock - item.quantity)
+          ...product,
+          stock: Math.max(0, product.stock - item.quantity)
         });
       }
-    });
-
-    await Promise.all(updates);
+    }
   };
 
-  const handleDeleteSale = async (id: string) =>
-    await StorageService.deleteSale(id);
+  const handleDeleteSale = async (id: string) => {
+    const sale = sales.find(s => s.id === id);
+    if (!sale) return;
 
-  const handleAddExpense = async (newExpense: Expense) =>
-    await StorageService.addExpense(newExpense);
+    // devolver stock
+    for (const item of sale.items) {
+      const product = products.find(p => p.id === item.id);
+      if (product) {
+        await StorageService.updateProduct({
+          ...product,
+          stock: product.stock + item.quantity
+        });
+      }
+    }
+
+    await StorageService.deleteSale(id);
+  };
+
+  const handleUpdateSale = async (sale: Sale) => {
+    await StorageService.updateSale(sale);
+  };
+
+  /* ================== GASTOS ================== */
+
+  const handleAddExpense = async (expense: Expense) =>
+    await StorageService.addExpense(expense);
 
   const handleDeleteExpense = async (id: string) =>
     await StorageService.deleteExpense(id);
+
+  /* ================== CAJA ================== */
 
   const handleOpenRegister = async (opening: CashOpening) =>
     await StorageService.addOpening(opening);
@@ -136,10 +145,14 @@ function App() {
   const handleDeleteClosure = async (id: string) =>
     await StorageService.deleteClosure(id);
 
+  /* ================== SETTINGS ================== */
+
   const handleSaveSettings = async (newSettings: CompanySettings) => {
     await StorageService.saveSettings(newSettings);
     alert('Configuración guardada.');
   };
+
+  /* ================== RENDER ================== */
 
   const renderContent = () => {
     if (isLoading) {
@@ -160,7 +173,7 @@ function App() {
             products={products}
             settings={settings}
             onCheckout={handleCheckout}
-            isRegisterOpen={isRegisterOpen}
+            isRegisterOpen
           />
         );
 
@@ -208,7 +221,8 @@ function App() {
             onOpenRegister={handleOpenRegister}
             onCloseRegister={handleCloseRegister}
             onDeleteClosure={handleDeleteClosure}
-            onDeleteSale={handleDeleteSale} // ✅ LÍNEA AGREGADA
+            onDeleteSale={handleDeleteSale}
+            onUpdateSale={handleUpdateSale}
           />
         );
 
@@ -222,14 +236,7 @@ function App() {
         );
 
       default:
-        return (
-          <POS
-            products={products}
-            settings={settings}
-            onCheckout={handleCheckout}
-            isRegisterOpen={isRegisterOpen}
-          />
-        );
+        return null;
     }
   };
 
