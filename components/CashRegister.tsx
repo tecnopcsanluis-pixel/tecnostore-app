@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Sale, CashClosure, PaymentMethod, Expense, CompanySettings, CashOpening } from '../types';
-import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Send } from 'lucide-react';
+import { Wallet, Calendar, ChevronDown, ChevronUp, Printer, Trash2, ArrowRightCircle, Lock, CreditCard, Banknote, QrCode, ArrowRightLeft, Send, Pencil } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CashRegisterProps {
@@ -14,15 +14,17 @@ interface CashRegisterProps {
   onCloseRegister: (closure: CashClosure) => void;
   onDeleteClosure: (id: string) => void;
   onDeleteSale?: (id: string) => void;
+  onUpdateSale?: (sale: Sale) => void;
 }
 
 export const CashRegister: React.FC<CashRegisterProps> = ({ 
   sales, expenses, closures, openings, settings, isAdmin, 
-  onOpenRegister, onCloseRegister, onDeleteClosure, onDeleteSale
+  onOpenRegister, onCloseRegister, onDeleteClosure, onDeleteSale, onUpdateSale
 }) => {
   const [notes, setNotes] = useState('');
   const [openingAmount, setOpeningAmount] = useState<string>('');
   const [showHistory, setShowHistory] = useState(false);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
 
   const lastClosure = useMemo(() => {
     if (!closures.length) return null;
@@ -326,6 +328,15 @@ Generado por TecnoStore`;
                       >
                         <Printer size={16}/>
                       </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setEditingSale(sale)}
+                          className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition"
+                          title="Editar venta"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
                       {isAdmin && onDeleteSale && (
                         <button 
                           onClick={() => {
@@ -381,6 +392,43 @@ Generado por TecnoStore`;
           </div>
         )}
       </div>
+
+      {editingSale && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl w-96 space-y-4">
+            <h3 className="font-bold text-lg">Editar venta</h3>
+
+            <label className="text-sm font-medium">Forma de pago</label>
+            <select
+              className="w-full border p-2 rounded"
+              value={editingSale.paymentMethod}
+              onChange={e =>
+                setEditingSale({
+                  ...editingSale,
+                  paymentMethod: e.target.value as PaymentMethod
+                })
+              }
+            >
+              {Object.values(PaymentMethod).map(pm => (
+                <option key={pm} value={pm}>{pm}</option>
+              ))}
+            </select>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <button onClick={() => setEditingSale(null)}>Cancelar</button>
+              <button
+                className="bg-brand-600 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  onUpdateSale?.(editingSale);
+                  setEditingSale(null);
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
