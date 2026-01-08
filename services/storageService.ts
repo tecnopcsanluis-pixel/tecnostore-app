@@ -17,7 +17,7 @@ const COLS = {
   SALES: 'sales',
   EXPENSES: 'expenses',
   CLOSURES: 'closures',
-  OPENINGS: 'openings', // Nueva colección
+  OPENINGS: 'openings',
   SETTINGS: 'settings'
 };
 
@@ -186,6 +186,15 @@ export const StorageService = {
       const { id, ...data } = sale;
       await setDoc(doc(db, COLS.SALES, id), cleanData(data));
     } catch (e) { handleError(e, 'Registrar Venta'); }
+  },
+
+  // ✅ ESTA ES LA FUNCIÓN QUE FALTABA Y SOLUCIONA EL ERROR ✅
+  updateSale: async (sale: Sale) => {
+    if (!isFirebaseEnabled || !db) return;
+    try {
+      const { id, ...data } = sale;
+      await updateDoc(doc(db, COLS.SALES, id), cleanData(data));
+    } catch (e) { handleError(e, 'Actualizar Venta'); }
   },
 
   deleteSale: async (id: string) => {
