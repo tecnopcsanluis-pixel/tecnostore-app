@@ -134,8 +134,10 @@ export const CashRegister: React.FC<CashRegisterProps> = ({
         id: product.id,
         name: product.name,
         price: product.price,
-        quantity: 1
-        // Eliminado 'cost' para evitar errores de compilación
+        quantity: 1,
+        // --- FIX APLICADO AQUÍ: Agregamos category y stock ---
+        category: product.category,
+        stock: product.stock
       });
     }
     setEditingSale(recalculateTotal({ ...editingSale, items: newItems }));
